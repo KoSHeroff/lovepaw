@@ -34,7 +34,7 @@ public final class LovePawFabricClient implements ClientModInitializer {
         ClientPlayNetworking.registerGlobalReceiver(LovePawPayloads.HelloPayload.TYPE, (payload, context) ->
                 context.client().execute(() -> {
                     LovePaw.LOGGER.info("Server speaks LovePaw (protocol {})", payload.protocolVersion());
-                    PetManager.get().onServerHello();
+                    PetManager.get().onServerHello(payload.protocolVersion());
                 }));
 
         ClientPlayNetworking.registerGlobalReceiver(LovePawPayloads.StatePayload.TYPE, (payload, context) ->

@@ -24,6 +24,8 @@ import java.util.UUID;
 public final class LovePawPayloads {
     private static final int MAX_ENTRIES = 1024;
     private static final int MAX_ID_LENGTH = 256;
+    /** A hex SHA-256, or empty from a client that has not hashed its pet. */
+    private static final int MAX_HASH_LENGTH = 64;
 
     private LovePawPayloads() {
     }
@@ -50,12 +52,20 @@ public final class LovePawPayloads {
         }
     }
 
-    /** Client to server: "I am now showing this pet", or empty for none. */
-    public record SelectPayload(String petId) implements CustomPacketPayload {
+    /**
+     * Client to server: "I am now showing this pet", or empty for none.
+     *
+     * <p>The hash goes with the id because an id alone says nothing about what
+     * the pet looks like: two players can both have a {@code local:cat} and
+     * mean different animals. It is what lets everyone else tell whether the
+     * cat they have is this cat.
+     */
+    public record SelectPayload(String petId, String contentHash) implements CustomPacketPayload {
         public static final Type<SelectPayload> TYPE = new Type<>(id("select"));
 
         public static final StreamCodec<RegistryFriendlyByteBuf, SelectPayload> CODEC = StreamCodec.composite(
                 ByteBufCodecs.stringUtf8(MAX_ID_LENGTH), SelectPayload::petId,
+                ByteBufCodecs.stringUtf8(MAX_HASH_LENGTH), SelectPayload::contentHash,
                 SelectPayload::new);
 
         @Override
@@ -65,7 +75,7 @@ public final class LovePawPayloads {
     }
 
     /** One player's choice, as the server relays it. */
-    public record Entry(UUID owner, String petId) {
+    public record Entry(UUID owner, String petId, String contentHash) {
     }
 
     /**
@@ -94,6 +104,7 @@ public final class LovePawPayloads {
                 }
                 buffer.writeUUID(entry.owner());
                 buffer.writeUtf(entry.petId(), MAX_ID_LENGTH);
+                buffer.writeUtf(entry.contentHash(), MAX_HASH_LENGTH);
             }
         }
 
@@ -104,7 +115,10 @@ public final class LovePawPayloads {
             }
             List<Entry> entries = new ArrayList<>(count);
             for (int i = 0; i < count; i++) {
-                entries.add(new Entry(buffer.readUUID(), buffer.readUtf(MAX_ID_LENGTH)));
+                entries.add(new Entry(
+                        buffer.readUUID(),
+                        buffer.readUtf(MAX_ID_LENGTH),
+                        buffer.readUtf(MAX_HASH_LENGTH)));
             }
             return new StatePayload(List.copyOf(entries));
         }

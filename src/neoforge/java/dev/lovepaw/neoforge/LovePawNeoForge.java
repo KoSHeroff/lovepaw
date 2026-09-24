@@ -33,7 +33,7 @@ public final class LovePawNeoForge {
     }
 
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar("1").optional();
+        PayloadRegistrar registrar = event.registrar(String.valueOf(LovePaw.PROTOCOL_VERSION)).optional();
 
         registrar.playToServer(
                 LovePawPayloads.SelectPayload.TYPE,
@@ -41,7 +41,7 @@ public final class LovePawNeoForge {
                 (payload, context) -> {
                     if (context.player() instanceof ServerPlayer player) {
                         context.enqueueWork(() -> {
-                            LovePawPayloads.Entry entry = ServerPetState.select(player.getUUID(), payload.petId());
+                            LovePawPayloads.Entry entry = ServerPetState.select(player.getUUID(), payload.petId(), payload.contentHash());
                             if (entry != null) {
                                 PacketDistributor.sendToAllPlayers(new LovePawPayloads.StatePayload(List.of(entry)));
                             }

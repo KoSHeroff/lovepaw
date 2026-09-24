@@ -1,18 +1,13 @@
 package dev.lovepaw.pet;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import dev.lovepaw.client.PetBundle;
 import dev.lovepaw.model.anim.Animation;
-import dev.lovepaw.model.anim.AnimationParser;
-import dev.lovepaw.model.geo.GeoBaker;
-import dev.lovepaw.model.geo.GeoParser;
 import dev.lovepaw.model.geo.baked.BakedGeoModel;
 import net.minecraft.resources.ResourceLocation;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
@@ -22,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -54,21 +50,25 @@ class BuiltInPetsTest {
     private static void checkPet(Path folder) throws IOException {
         String name = folder.getFileName().toString();
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath("lovepaw", name);
-        JsonObject json = read(folder.resolve("pet.json"));
-        PetDefinition definition = PetDefinitionParser.parse(
-                id, ResourceLocation.fromNamespaceAndPath("lovepaw", "lovepaw/pets/" + name),
-                json, PetSourceKind.BUILTIN);
+        ResourceLocation assets = ResourceLocation.fromNamespaceAndPath("lovepaw", "lovepaw/pets/" + name);
 
-        BakedGeoModel model = GeoBaker.bake(GeoParser.parse(read(folder.resolve(fileName(definition.model())))));
+        // Read the way a pet sent by another player would be, so a built-in pet
+        // that could not survive that trip fails here rather than in a game.
+        PetBundle.Loaded loaded =
+                PetBundle.read(id, assets, PetSourceKind.BUILTIN, PetBundle.filesIn(folder));
+        PetDefinition definition = loaded.definition();
+
+        BakedGeoModel model = loaded.assets().model();
         assertFalse(model.roots().isEmpty(), "model has no bones");
+        assertEquals(64, definition.contentHash().length(),
+                "a pet is identified by the hash of its files; was " + definition.contentHash());
 
         if (definition.animationFile() == null) {
             assertTrue(definition.animations().isEmpty(), "animations named but no animation_file");
             return;
         }
 
-        Map<String, Animation> animations =
-                AnimationParser.parse(read(folder.resolve(fileName(definition.animationFile()))));
+        Map<String, Animation> animations = loaded.assets().animations();
         List<String> missing = new ArrayList<>();
         definition.animations().forEach((state, animationName) -> {
             if (!animations.containsKey(animationName)) {
@@ -84,18 +84,5 @@ class BuiltInPetsTest {
             }
         }));
         assertTrue(unknownBones.isEmpty(), "animations drive bones the model does not have: " + unknownBones);
-    }
-
-    private static String fileName(ResourceLocation location) {
-        String path = location.getPath();
-        return path.substring(path.lastIndexOf('/') + 1);
-    }
-
-    private static JsonObject read(Path path) {
-        try {
-            return JsonParser.parseString(Files.readString(path)).getAsJsonObject();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
     }
 }

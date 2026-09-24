@@ -46,8 +46,28 @@ public final class PetManager {
         void sendToServer(CustomPacketPayload payload);
     }
 
-    private final Map<UUID, ResourceLocation> remoteSelections = new HashMap<>();
+    /**
+     * What another player says they are wearing: the pet's id, and the hash of
+     * the files it is made of.
+     *
+     * <p>The hash is what makes the id trustworthy. Two players can each have a
+     * {@code local:cat} of their own making, and without the hash one of them
+     * would quietly be shown the other's — the wrong animal, with no sign that
+     * anything is off. An empty hash comes from a client too old to send one
+     * and is taken at its word, as it was before.
+     */
+    public record Selection(ResourceLocation id, String contentHash) {
+        public boolean matches(PetDefinition definition) {
+            return definition.id().equals(id)
+                    && (contentHash.isEmpty() || contentHash.equals(definition.contentHash()));
+        }
+    }
+
+    private final Map<UUID, Selection> remoteSelections = new HashMap<>();
     private final Map<UUID, PetInstance> instances = new HashMap<>();
+
+    /** Pets somebody is wearing that this client does not have, by hash. */
+    private final Set<String> missing = new HashSet<>();
 
     private PacketSender sender;
     private boolean serverHasMod;
@@ -69,8 +89,19 @@ public final class PetManager {
         return serverHasMod;
     }
 
-    /** The server greeted us, so tell it what we are wearing. */
-    public void onServerHello() {
+    /**
+     * The server greeted us, so tell it what we are wearing — unless it speaks
+     * a different version of the protocol, in which case the two sides would
+     * read each other's packets as nonsense. Staying quiet leaves the player
+     * with their own pet, exactly as on a server without the mod.
+     */
+    public void onServerHello(int protocolVersion) {
+        if (protocolVersion != LovePaw.PROTOCOL_VERSION) {
+            LovePaw.LOGGER.warn("This server speaks LovePaw protocol {} and this client speaks {}; "
+                            + "other players' pets stay hidden until both run the same version",
+                    protocolVersion, LovePaw.PROTOCOL_VERSION);
+            return;
+        }
         serverHasMod = true;
         sendSelection();
     }
@@ -83,7 +114,7 @@ public final class PetManager {
             } else {
                 ResourceLocation id = ResourceLocation.tryParse(entry.petId());
                 if (id != null) {
-                    remoteSelections.put(entry.owner(), id);
+                    remoteSelections.put(entry.owner(), new Selection(id, entry.contentHash()));
                 }
             }
         }
@@ -93,6 +124,7 @@ public final class PetManager {
         serverHasMod = false;
         remoteSelections.clear();
         instances.clear();
+        missing.clear();
     }
 
     public ResourceLocation localSelection() {
@@ -113,7 +145,12 @@ public final class PetManager {
             return;
         }
         ResourceLocation selected = ClientConfig.selectedPet();
-        sender.sendToServer(new LovePawPayloads.SelectPayload(selected == null ? "" : selected.toString()));
+        if (selected == null) {
+            sender.sendToServer(new LovePawPayloads.SelectPayload("", ""));
+            return;
+        }
+        String hash = PetRegistry.get().get(selected).map(PetDefinition::contentHash).orElse("");
+        sender.sendToServer(new LovePawPayloads.SelectPayload(selected.toString(), hash));
     }
 
     /** Once per client tick: create, update and retire pets. */
@@ -127,13 +164,13 @@ public final class PetManager {
 
         for (Player player : level.players()) {
             UUID owner = player.getUUID();
-            ResourceLocation wanted = wantedPet(minecraft, owner);
+            Selection wanted = wantedPet(minecraft, owner);
             if (wanted == null) {
                 continue;
             }
 
             PetInstance instance = instances.get(owner);
-            if (instance == null || !instance.definition().id().equals(wanted)) {
+            if (instance == null || !wanted.matches(instance.definition())) {
                 instance = create(owner, wanted, owner.equals(minecraft.player.getUUID()));
                 if (instance == null) {
                     continue;
@@ -168,9 +205,12 @@ public final class PetManager {
         return found;
     }
 
-    private ResourceLocation wantedPet(Minecraft minecraft, UUID owner) {
+    private Selection wantedPet(Minecraft minecraft, UUID owner) {
         if (minecraft.player != null && owner.equals(minecraft.player.getUUID())) {
-            return ClientConfig.selectedPet();
+            ResourceLocation selected = ClientConfig.selectedPet();
+            // Whatever this client has under that id is what it is wearing,
+            // so there is nothing to check it against.
+            return selected == null ? null : new Selection(selected, "");
         }
         if (!ClientConfig.showOtherPlayersPets()) {
             return null;
@@ -178,9 +218,17 @@ public final class PetManager {
         return remoteSelections.get(owner);
     }
 
-    private PetInstance create(UUID owner, ResourceLocation petId, boolean isLocal) {
+    private PetInstance create(UUID owner, Selection selection, boolean isLocal) {
+        ResourceLocation petId = selection.id();
         PetDefinition definition = PetRegistry.get().get(petId).orElse(null);
-        if (definition == null) {
+        if (definition == null || !selection.matches(definition)) {
+            // Having the same id is not having the same pet. Showing ours in
+            // its place would put an animal on that player's shoulder that
+            // nobody chose, so until the files themselves arrive, nothing is
+            // shown at all.
+            if (!selection.contentHash().isEmpty() && missing.add(selection.contentHash())) {
+                LovePaw.LOGGER.info("Pet {} ({}) is not installed here", petId, selection.contentHash());
+            }
             return null;
         }
         PetAssets assets = PetAssetCache.get().get(petId);

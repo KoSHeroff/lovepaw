@@ -15,7 +15,7 @@ final class ClientPayloadHandlers {
                 LovePawPayloads.HelloPayload.CODEC,
                 (payload, context) -> context.enqueueWork(() -> {
                     LovePaw.LOGGER.info("Server speaks LovePaw (protocol {})", payload.protocolVersion());
-                    PetManager.get().onServerHello();
+                    PetManager.get().onServerHello(payload.protocolVersion());
                 }));
 
         registrar.playToClient(

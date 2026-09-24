@@ -22,6 +22,8 @@ import java.util.Map;
  * @param render        drawing options
  * @param behaviour     movement options
  * @param source        where this definition was found
+ * @param contentHash   names the files this pet is made of, so a pet can be
+ *                      told apart from a different one wearing the same id
  */
 public record PetDefinition(
         ResourceLocation id,
@@ -34,7 +36,8 @@ public record PetDefinition(
         Map<PetAnimationState, String> animations,
         PetRenderSettings render,
         PetBehaviourSettings behaviour,
-        PetSourceKind source
+        PetSourceKind source,
+        String contentHash
 ) {
     /** Animation name for a state, or null when the pack does not define one. */
     public String animationFor(PetAnimationState state) {

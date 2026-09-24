@@ -30,7 +30,7 @@ public final class LovePawFabric implements ModInitializer {
 
         ServerPlayNetworking.registerGlobalReceiver(LovePawPayloads.SelectPayload.TYPE, (payload, context) -> {
             ServerPlayer player = context.player();
-            LovePawPayloads.Entry entry = ServerPetState.select(player.getUUID(), payload.petId());
+            LovePawPayloads.Entry entry = ServerPetState.select(player.getUUID(), payload.petId(), payload.contentHash());
             if (entry != null) {
                 broadcast(player.server, new LovePawPayloads.StatePayload(List.of(entry)));
             }

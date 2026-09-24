@@ -17,6 +17,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -55,7 +56,7 @@ class PetLocalLoaderTest {
         assertEquals(ResourceLocation.fromNamespaceAndPath("local", "mypet"), found.definition().id());
         assertFalse(found.assets().model().roots().isEmpty(), "the model should be baked and ready");
         assertFalse(found.assets().animations().isEmpty(), "and its animations loaded");
-        assertTrue(Files.isRegularFile(found.texture()), "the texture stays a file until the render thread wants it");
+        assertTrue(found.texture().length > 0, "the texture stays bytes until the render thread wants it");
     }
 
     @Test
@@ -98,6 +99,44 @@ class PetLocalLoaderTest {
 
         assertTrue(PetLocalLoader.scan(folder).isEmpty(),
                 "a pet with no texture would render as purple and black, so it does not load at all");
+    }
+
+    @Test
+    void theSamePetInTwoFoldersIsTheSamePet(@TempDir Path folder) throws IOException {
+        pet(folder, "mine");
+        pet(folder, "theirs");
+
+        List<PetLocalLoader.LocalPet> pets = PetLocalLoader.scan(folder);
+
+        assertEquals(2, pets.size());
+        assertEquals(pets.get(0).definition().contentHash(), pets.get(1).definition().contentHash(),
+                "the same files are the same pet, whatever folder the player put them in");
+    }
+
+    @Test
+    void changingOneFileMakesADifferentPet(@TempDir Path folder) throws IOException {
+        pet(folder, "before");
+        String hash = PetLocalLoader.scan(folder).get(0).definition().contentHash();
+
+        Path changed = pet(folder, "before");
+        String json = Files.readString(changed.resolve("pet.json"), StandardCharsets.UTF_8)
+                .replace("\"scale\"", "\"y_offset\": 0.5, \"scale\"");
+        Files.writeString(changed.resolve("pet.json"), json, StandardCharsets.UTF_8);
+
+        assertNotEquals(hash, PetLocalLoader.scan(folder).get(0).definition().contentHash(),
+                "two pets sharing an id and nothing else is exactly what the hash is for");
+    }
+
+    @Test
+    void whatElseIsLyingInTheFolderIsNotPartOfThePet(@TempDir Path folder) throws IOException {
+        Path directory = pet(folder, "mypet");
+        String hash = PetLocalLoader.scan(folder).get(0).definition().contentHash();
+
+        Files.writeString(directory.resolve("notes.txt"), "work in progress", StandardCharsets.UTF_8);
+        Files.copy(directory.resolve("catopillar.png"), directory.resolve("catopillar.png.bak"));
+
+        assertEquals(hash, PetLocalLoader.scan(folder).get(0).definition().contentHash(),
+                "a pet weighs what it draws with, not what its author left beside it");
     }
 
     @Test

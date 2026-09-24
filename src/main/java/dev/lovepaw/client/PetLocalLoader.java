@@ -1,27 +1,16 @@
 package dev.lovepaw.client;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import dev.lovepaw.LovePaw;
-import dev.lovepaw.model.anim.Animation;
-import dev.lovepaw.model.anim.AnimationParser;
-import dev.lovepaw.model.geo.GeoBaker;
-import dev.lovepaw.model.geo.GeoParser;
-import dev.lovepaw.model.geo.baked.BakedGeoModel;
+import dev.lovepaw.pet.PetContent;
 import dev.lovepaw.pet.PetDefinition;
-import dev.lovepaw.pet.PetDefinitionParser;
 import dev.lovepaw.pet.PetSourceKind;
 import net.minecraft.resources.ResourceLocation;
 
 import java.io.IOException;
-import java.io.Reader;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Stream;
 
 /**
@@ -35,17 +24,16 @@ import java.util.stream.Stream;
  * all of them, and it is where a downloaded pet will land when a catalogue
  * exists.
  *
- * <p>Reading files is all this does; the texture is handed on as a path,
- * because turning it into something the renderer can bind has to happen on the
- * render thread and this runs off it.
+ * <p>Reading files is all this does; the texture is handed on as bytes, because
+ * turning it into something the renderer can bind has to happen on the render
+ * thread and this runs off it.
  */
 public final class PetLocalLoader {
     /** Namespace for folder pets, so they can never collide with a pack's. */
     public static final String NAMESPACE = "local";
-    private static final String DEFINITION_FILE = "pet.json";
 
-    /** A pet found on disk, with its texture still a file on that disk. */
-    public record LocalPet(PetDefinition definition, PetAssets assets, Path texture) {
+    /** A pet found on disk, with its texture not yet uploaded. */
+    public record LocalPet(PetDefinition definition, PetAssets assets, byte[] texture) {
     }
 
     private PetLocalLoader() {
@@ -81,7 +69,7 @@ public final class PetLocalLoader {
         }
 
         for (Path directory : directories) {
-            if (!Files.isRegularFile(directory.resolve(DEFINITION_FILE))) {
+            if (!Files.isRegularFile(directory.resolve(PetContent.DEFINITION))) {
                 continue;
             }
             try {
@@ -107,52 +95,8 @@ public final class PetLocalLoader {
         ResourceLocation assetFolder = ResourceLocation.fromNamespaceAndPath(
                 LovePaw.MOD_ID, NAMESPACE + "/" + name);
 
-        JsonObject json = readJson(directory.resolve(DEFINITION_FILE));
-        requireLocalFile(json, "model", id);
-        requireLocalFile(json, "texture", id);
-        requireLocalFile(json, "animation_file", id);
-
-        PetDefinition definition = PetDefinitionParser.parse(id, assetFolder, json, PetSourceKind.LOCAL);
-
-        BakedGeoModel model = GeoBaker.bake(GeoParser.parse(readJson(fileFor(directory, definition.model()))));
-
-        Map<String, Animation> animations = new LinkedHashMap<>();
-        if (definition.animationFile() != null) {
-            animations.putAll(AnimationParser.parse(readJson(fileFor(directory, definition.animationFile()))));
-        }
-
-        Path texture = fileFor(directory, definition.texture());
-        return new LocalPet(definition, new PetAssets(model, Map.copyOf(animations)), texture);
-    }
-
-    /**
-     * A folder pet may only point at files beside its {@code pet.json}. The
-     * {@code namespace:path} form a resource pack can use would send us looking
-     * inside packs, which is not where these files are.
-     */
-    private static void requireLocalFile(JsonObject json, String field, ResourceLocation id) throws IOException {
-        if (!json.has(field) || !json.get(field).isJsonPrimitive()) {
-            return;
-        }
-        String value = json.get(field).getAsString();
-        if (value.indexOf(':') >= 0 || value.indexOf('/') >= 0) {
-            throw new IOException("pet " + id + " has '" + field + "': " + value
-                    + " — a pet in this folder can only name files sitting next to its pet.json");
-        }
-    }
-
-    private static Path fileFor(Path directory, ResourceLocation location) throws IOException {
-        String path = location.getPath();
-        Path file = directory.resolve(path.substring(path.lastIndexOf('/') + 1));
-        if (!Files.isRegularFile(file)) {
-            throw new IOException("missing file: " + file.getFileName());
-        }
-        return file;
-    }
-
-    private static JsonObject readJson(Path file) throws IOException {
-        try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
-            return JsonParser.parseReader(reader).getAsJsonObject();
-        }
+        PetBundle.Loaded loaded =
+                PetBundle.read(id, assetFolder, PetSourceKind.LOCAL, PetBundle.filesIn(directory));
+        return new LocalPet(loaded.definition(), loaded.assets(), loaded.texture());
     }
 }
