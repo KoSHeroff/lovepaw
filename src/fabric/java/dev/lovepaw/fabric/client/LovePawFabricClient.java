@@ -63,6 +63,7 @@ public final class LovePawFabricClient implements ClientModInitializer {
                     context.matrixStack(),
                     context.consumers(),
                     context.camera(),
+                    context.frustum(),
                     context.tickCounter().getGameTimeDeltaPartialTick(false));
             Minecraft.getInstance().renderBuffers().bufferSource().endBatch();
         });

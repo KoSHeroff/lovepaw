@@ -31,6 +31,11 @@ The server never sends positions. It only relays *who owns which pet*; every cli
 the same follow behaviour locally. That is what keeps it cheap, and what lets the client
 half work on a server that has never heard of the mod.
 
+Running it locally does not mean running it differently: a pet's decisions come from dice
+seeded by its owner and the world clock, so every client watching it sees the same pet
+doing the same thing. Your own pet is always simulated; somebody else's is only simulated while it is on your
+screen.
+
 If someone wears a pet you do not have installed, nothing is drawn for them — this is the
 point where a future pet catalogue would offer to download it.
 

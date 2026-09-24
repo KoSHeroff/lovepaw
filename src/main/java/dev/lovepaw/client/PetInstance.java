@@ -44,6 +44,9 @@ public final class PetInstance implements PetActor {
     private static final int STUCK_TICKS = 20;
     private static final int JUMP_AFTER_TICKS = 2;
     private static final int PATH_AFTER_TICKS = 4;
+    private static final int OUT_OF_SIGHT_TICKS = 20;
+    /** Ticks a pet's dice are shared for; decisions land on this grid. */
+    private static final long DECISION_SLOT = 10;
 
     private final UUID ownerId;
     private final PetDefinition definition;
@@ -81,6 +84,9 @@ public final class PetInstance implements PetActor {
     private boolean teleportRequested;
     private boolean sitting;
     private int stuckTicks;
+    private int unseenTicks;
+    private long decisionSlot = Long.MIN_VALUE;
+    private RandomSource decisions;
 
     private Player owner;
 
@@ -132,8 +138,29 @@ public final class PetInstance implements PetActor {
     }
 
     /** Physics and behaviour, once per client tick. */
+    /**
+     * Marks the pet as drawn this frame. A pet nobody can see is not worth
+     * thinking for: its behaviour, its collision and its route finding are all
+     * skipped until it is on screen again.
+     */
+    public void seen() {
+        unseenTicks = 0;
+    }
+
+    /** Whether anything would notice this pet moving. */
+    public boolean outOfSight() {
+        return unseenTicks > OUT_OF_SIGHT_TICKS;
+    }
+
     public void tick(Player petOwner) {
         this.owner = petOwner;
+        unseenTicks++;
+        // Your own pet always thinks: it is either beside you or on its way
+        // there, and a pet that only followed while you looked at it would be
+        // a strange thing to own.
+        if (local) {
+            seen();
+        }
         refreshSettings();
         PetBehaviourSettings config = effectiveBehaviour;
         Level level = petOwner.level();
@@ -149,6 +176,17 @@ public final class PetInstance implements PetActor {
         }
         if (position.y < level.getMinBuildHeight() - 8 || wedged(level, config)) {
             teleportToOwner();
+        }
+
+        // Somebody else's pet that nobody can see holds still and thinks about
+        // nothing: no behaviour, no collision, no route finding. Waking up it
+        // simply carries on from where it stood — if its owner has gone in the
+        // meantime, the usual rescue above has already brought it along.
+        if (outOfSight()) {
+            previousPosition = position;
+            previousYaw = yaw;
+            this.owner = null;
+            return;
         }
 
         inWater = inWater(level, config);
@@ -416,7 +454,27 @@ public final class PetInstance implements PetActor {
 
     @Override
     public RandomSource random() {
-        return owner.level().random;
+        long slot = worldTime() / DECISION_SLOT;
+        if (slot != decisionSlot || decisions == null) {
+            decisionSlot = slot;
+            decisions = RandomSource.create(seedFor(ownerId, slot));
+        }
+        return decisions;
+    }
+
+    @Override
+    public long worldTime() {
+        return owner.level().getGameTime();
+    }
+
+    /**
+     * The same pet, the same moment, the same number on every client. Without
+     * this each client rolled its own dice and the same pet led a different
+     * life on each screen.
+     */
+    private static long seedFor(UUID owner, long slot) {
+        long mixed = owner.getMostSignificantBits() * 31 + owner.getLeastSignificantBits();
+        return mixed ^ (slot * 0x9E3779B97F4A7C15L);
     }
 
     @Override
@@ -500,7 +558,7 @@ public final class PetInstance implements PetActor {
 
     @Override
     public Vec3 findSomethingInteresting(Vec3 near, double radius) {
-        return PetInterest.find(owner.level(), near, radius, owner.level().random);
+        return PetInterest.find(owner.level(), near, radius, random());
     }
 
     @Override

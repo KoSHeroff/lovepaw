@@ -4,10 +4,15 @@ import dev.lovepaw.pet.PetBehaviourSettings;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
+
 import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FollowBehaviourTest {
@@ -15,6 +20,7 @@ class FollowBehaviourTest {
 
     private static void simulate(FollowBehaviour behaviour, TestActor actor, int ticks) {
         for (int tick = 0; tick < ticks; tick++) {
+            actor.time++;
             behaviour.tick(actor);
             if (actor.motion.length() > 1.0E-6) {
                 actor.position = actor.position.add(actor.motion);
@@ -48,6 +54,7 @@ class FollowBehaviourTest {
         boolean moved = false;
         boolean sat = false;
         for (int tick = 0; tick < 600; tick++) {
+            actor.time++;
             behaviour.tick(actor);
             if (actor.motion.length() > 1.0E-6) {
                 moved = true;
@@ -139,6 +146,7 @@ class FollowBehaviourTest {
         for (int tick = 0; tick < 20; tick++) {
             double angle = tick * 0.3;
             actor.ownerPosition = new Vec3(Math.cos(angle) * 3, 0, Math.sin(angle) * 3);
+            actor.time++;
             behaviour.tick(actor);
         }
 
@@ -192,6 +200,7 @@ class FollowBehaviourTest {
 
         boolean stoodAndLooked = false;
         for (int tick = 0; tick < 600 && !stoodAndLooked; tick++) {
+            actor.time++;
             behaviour.tick(actor);
             if (actor.motion.length() > 1.0E-6) {
                 actor.position = actor.position.add(actor.motion);
@@ -216,6 +225,7 @@ class FollowBehaviourTest {
         int visits = 0;
         boolean away = true;
         for (int tick = 0; tick < 3000; tick++) {
+            actor.time++;
             behaviour.tick(actor);
             if (actor.motion.length() > 1.0E-6) {
                 actor.position = actor.position.add(actor.motion);
@@ -243,6 +253,53 @@ class FollowBehaviourTest {
                 "wandering off is wandering, whatever the reason; was " + actor.position);
     }
 
+    /** One client's copy of a pet, run for a while, reporting where it decided to go. */
+    private static List<Vec3> whereItDecidedToGo(long petSeed, long startTime, Vec3 startPosition) {
+        TestActor actor = new TestActor() {
+            @Override
+            public RandomSource random() {
+                return sharedRandom();
+            }
+        };
+        actor.petSeed = petSeed;
+        actor.time = startTime;
+        actor.position = startPosition;
+        FollowBehaviour behaviour = new FollowBehaviour();
+
+        List<Vec3> targets = new ArrayList<>();
+        for (int tick = 0; tick < 400; tick++) {
+            actor.time++;
+            behaviour.tick(actor);
+            if (actor.motion.length() > 1.0E-6) {
+                actor.position = actor.position.add(actor.motion);
+            }
+            if (actor.lastWalkTarget != null && (targets.isEmpty()
+                    || targets.get(targets.size() - 1).distanceToSqr(actor.lastWalkTarget) > 0.01)) {
+                targets.add(actor.lastWalkTarget);
+            }
+        }
+        return targets;
+    }
+
+    @Test
+    void twoPlayersWatchingOnePetSeeItDoTheSameThing() {
+        // The same pet on two clients: same owner, same world clock, copies
+        // that were placed a little differently when each player came near.
+        List<Vec3> here = whereItDecidedToGo(4242L, 1000, new Vec3(0.5, 0, 0));
+        List<Vec3> there = whereItDecidedToGo(4242L, 1000, new Vec3(0.6, 0, 0.1));
+
+        assertFalse(here.isEmpty(), "it should have gone somewhere");
+        assertEquals(here, there, "both players should watch it go to the same places");
+    }
+
+    @Test
+    void anotherPlayersPetLeadsItsOwnLife() {
+        List<Vec3> mine = whereItDecidedToGo(4242L, 1000, new Vec3(0.5, 0, 0));
+        List<Vec3> theirs = whereItDecidedToGo(99L, 1000, new Vec3(0.5, 0, 0));
+
+        assertNotEquals(mine, theirs, "two different pets should not move in lockstep");
+    }
+
     private static PetBehaviourSettings withWander(boolean wander) {
         PetBehaviourSettings base = PetBehaviourSettings.DEFAULT;
         return new PetBehaviourSettings(
@@ -255,7 +312,7 @@ class FollowBehaviourTest {
                 base.curiosity(), base.interestRadius(), base.predictionSeconds());
     }
 
-    private static final class TestActor implements PetActor {
+    private static class TestActor implements PetActor {
         private final RandomSource random = RandomSource.create(1234L);
 
         PetBehaviourSettings settings = PetBehaviourSettings.DEFAULT;
@@ -266,6 +323,7 @@ class FollowBehaviourTest {
         boolean lookAlongMotion;
         Vec3 lookTarget;
         int looks;
+        Vec3 lastWalkTarget;
         boolean teleported;
         boolean sitting;
         boolean canSit = true;
@@ -273,6 +331,11 @@ class FollowBehaviourTest {
         Vec3 interesting;
         int looksAtInteresting;
         boolean stuck;
+        long time;
+        /** Which pet this stands in for; two clients of one pet share it. */
+        long petSeed;
+        private long slot = Long.MIN_VALUE;
+        private RandomSource shared = RandomSource.create(0);
 
         @Override
         public Vec3 position() {
@@ -336,6 +399,7 @@ class FollowBehaviourTest {
 
         @Override
         public void walkTowards(Vec3 target, float speed) {
+            lastWalkTarget = target;
             Vec3 delta = new Vec3(target.x - position.x, 0, target.z - position.z);
             double length = delta.length();
             motion = length < 1.0E-6 ? Vec3.ZERO : delta.scale(Math.min(speed, length) / length);
@@ -375,6 +439,21 @@ class FollowBehaviourTest {
         @Override
         public boolean isSitting() {
             return sitting;
+        }
+
+        @Override
+        public long worldTime() {
+            return time;
+        }
+
+        /** Seeded the way a live pet seeds itself: by pet and by world clock. */
+        RandomSource sharedRandom() {
+            long now = time / 10;
+            if (now != slot) {
+                slot = now;
+                shared = RandomSource.create(petSeed ^ (now * 0x9E3779B97F4A7C15L));
+            }
+            return shared;
         }
 
         @Override

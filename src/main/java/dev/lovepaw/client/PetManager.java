@@ -8,15 +8,18 @@ import dev.lovepaw.net.LovePawPayloads;
 import dev.lovepaw.pet.PetDefinition;
 import dev.lovepaw.pet.PetRegistry;
 import net.minecraft.client.Camera;
+import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -33,6 +36,7 @@ import java.util.UUID;
  */
 public final class PetManager {
     private static final float MAX_FRAME_SECONDS = 0.25f;
+    private static final double RENDER_RANGE = 64;
 
     private static final PetManager INSTANCE = new PetManager();
 
@@ -167,7 +171,8 @@ public final class PetManager {
     }
 
     /** Once per frame, after entities have been drawn. */
-    public void render(PoseStack poseStack, MultiBufferSource buffers, Camera camera, float partialTick) {
+    public void render(PoseStack poseStack, MultiBufferSource buffers, Camera camera,
+                       Frustum frustum, float partialTick) {
         if (instances.isEmpty()) {
             return;
         }
@@ -181,9 +186,42 @@ public final class PetManager {
         float frameSeconds = frameDelta(minecraft.isPaused());
         Vec3 cameraPosition = camera.getPosition();
 
-        for (PetInstance pet : new ArrayList<>(instances.values())) {
+        List<PetInstance> visible = inView(instances.values(), frustum, cameraPosition, frameSeconds, partialTick);
+        draw(visible, level, poseStack, buffers, cameraPosition, partialTick);
+    }
+
+    /**
+     * Advances every pet's animation and keeps the ones actually on screen. The
+     * clock runs either way, so a pet that walks back into view is where it
+     * would have been rather than where it was when it left.
+     */
+    private static List<PetInstance> inView(Collection<PetInstance> pets, Frustum frustum,
+                                            Vec3 cameraPosition, float frameSeconds, float partialTick) {
+        List<PetInstance> visible = new ArrayList<>();
+        for (PetInstance pet : pets) {
             pet.updateAnimation(frameSeconds);
-            PetRenderer.render(pet, level, poseStack, buffers, cameraPosition, partialTick);
+            Vec3 at = pet.renderPosition(partialTick);
+            if (at.distanceToSqr(cameraPosition) > RENDER_RANGE * RENDER_RANGE) {
+                continue;
+            }
+            if (frustum != null && !frustum.isVisible(
+                    new AABB(at.x - 1.5, at.y - 0.5, at.z - 1.5, at.x + 1.5, at.y + 2.5, at.z + 1.5))) {
+                continue;
+            }
+            pet.seen();
+            visible.add(pet);
+        }
+        return visible;
+    }
+
+    /** Bodies first, then shadows: one batch each rather than two per pet. */
+    private static void draw(List<PetInstance> pets, ClientLevel level, PoseStack poseStack,
+                             MultiBufferSource buffers, Vec3 cameraPosition, float partialTick) {
+        for (PetInstance pet : pets) {
+            PetRenderer.renderBody(pet, level, poseStack, buffers, cameraPosition, partialTick);
+        }
+        for (PetInstance pet : pets) {
+            PetRenderer.renderShadow(pet, level, poseStack, buffers, cameraPosition, partialTick);
         }
     }
 

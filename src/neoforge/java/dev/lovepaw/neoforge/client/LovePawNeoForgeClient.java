@@ -78,6 +78,7 @@ public final class LovePawNeoForgeClient {
                     event.getPoseStack(),
                     minecraft.renderBuffers().bufferSource(),
                     event.getCamera(),
+                    event.getFrustum(),
                     event.getPartialTick().getGameTimeDeltaPartialTick(false));
             minecraft.renderBuffers().bufferSource().endBatch();
         }

@@ -3,6 +3,23 @@
 Notable changes, newest first. Versions are `<mod>+mc<minecraft>`; the Minecraft
 half is not part of the mod's own numbering.
 
+## 0.3.0 — 2026-09-24
+
+### Changed
+
+- Pets further than 64 blocks, or outside the camera's view, are no longer drawn. Their
+  animation clock keeps running, so one that walks back into view is where it should be.
+- Bodies and shadows are drawn in separate passes rather than alternating per pet: they use
+  different render types, and swapping between them ended a batch every time. Measured with
+  a crowd of stand-in pets: a thousand went from 25 ms a frame to 16, and five thousand with
+  your back to them from 125 ms to 12.
+- Somebody else's pet is only simulated while it is on your screen — no behaviour, no
+  collision, no route finding otherwise. Your own pet is always simulated, since it is
+  either beside you or on its way there.
+- A pet's decisions now come from dice seeded by its owner and the world clock, taken on a
+  shared grid of ticks. Two players watching the same pet see it do the same thing, rather
+  than one watching it sit on a chest while the other watches it sniff a flower.
+
 ## 0.2.0 — 2026-09-24
 
 ### Added

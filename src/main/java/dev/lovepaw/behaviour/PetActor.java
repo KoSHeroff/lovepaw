@@ -37,7 +37,16 @@ public interface PetActor {
 
     Level level();
 
+    /**
+     * Randomness every client simulating this pet agrees on: it is seeded from
+     * who owns the pet and where the world clock has got to, so two players
+     * watching the same pet see it make the same choice rather than one
+     * watching it sit on a chest while the other watches it sniff a flower.
+     */
     RandomSource random();
+
+    /** The world clock, which every client has the same reading of. */
+    long worldTime();
 
     PetBehaviourSettings settings();
 

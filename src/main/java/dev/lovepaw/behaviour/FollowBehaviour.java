@@ -40,6 +40,12 @@ public final class FollowBehaviour implements PetBehaviour {
     private static final double CLOSE_ENOUGH_TO_LOOK = 2.0;
     private static final int THINGS_REMEMBERED = 5;
     private static final double SAME_THING = 2.5;
+    /**
+     * Decisions are taken on this grid of world ticks, never between. Every
+     * client simulating the same pet reaches a boundary at the same moment and
+     * asks the same seeded random the same question, so they all decide alike.
+     */
+    private static final long SLOT = 10;
     private static final float SIT_AND_STARE = 0.4f;
 
     private enum Mode {
@@ -60,8 +66,8 @@ public final class FollowBehaviour implements PetBehaviour {
     private Vec3 travelTarget;
     private Vec3 travelAnchor;
     private Vec3 wanderTarget;
-    private float modeSeconds;
-    private float glanceSeconds;
+    private long decideAt;
+    private long glanceAt;
     private Vec3 glanceTarget;
     private Vec3 interest;
     private final Deque<Vec3> alreadySeen = new ArrayDeque<>();
@@ -150,16 +156,14 @@ public final class FollowBehaviour implements PetBehaviour {
 
     private void rest(PetActor actor, PetBehaviourSettings settings) {
         actor.stand();
-        modeSeconds -= actor.deltaSeconds();
 
-        glanceSeconds -= actor.deltaSeconds();
-        if (glanceSeconds <= 0) {
-            glanceSeconds = randomBetween(actor, GLANCE_MIN_SECONDS, GLANCE_MAX_SECONDS);
+        if (due(actor, glanceAt)) {
+            glanceAt = deadline(actor, randomBetween(actor, GLANCE_MIN_SECONDS, GLANCE_MAX_SECONDS));
             glanceTarget = actor.random().nextFloat() < 0.5f ? ownerGlance(actor) : randomGlance(actor);
             actor.face(glanceTarget);
         }
 
-        if (modeSeconds > 0) {
+        if (!due(actor, decideAt)) {
             return;
         }
 
@@ -179,7 +183,7 @@ public final class FollowBehaviour implements PetBehaviour {
             if (target != null && horizontalDistance(actor.position(), target) > ARRIVED) {
                 mode = Mode.WANDER;
                 wanderTarget = target;
-                modeSeconds = WANDER_TIMEOUT_SECONDS;
+                decideAt = deadline(actor, WANDER_TIMEOUT_SECONDS);
                 return;
             }
         }
@@ -211,18 +215,17 @@ public final class FollowBehaviour implements PetBehaviour {
         }
         interest = thing;
         mode = Mode.INSPECT;
-        modeSeconds = REACH_IT_SECONDS;
+        decideAt = deadline(actor, REACH_IT_SECONDS);
         return true;
     }
 
     private void inspect(PetActor actor, PetBehaviourSettings settings) {
-        modeSeconds -= actor.deltaSeconds();
         double distance = horizontalDistance(actor.position(), interest);
 
         if (distance <= CLOSE_ENOUGH_TO_LOOK) {
             remember(interest);
             mode = Mode.STUDY;
-            modeSeconds = randomBetween(actor, STUDY_MIN_SECONDS, STUDY_MAX_SECONDS);
+            decideAt = deadline(actor, randomBetween(actor, STUDY_MIN_SECONDS, STUDY_MAX_SECONDS));
             actor.stand();
             if (actor.onGround() && !actor.inWater() && actor.random().nextFloat() < SIT_AND_STARE) {
                 actor.setSitting(true);
@@ -230,7 +233,7 @@ public final class FollowBehaviour implements PetBehaviour {
             return;
         }
 
-        if (modeSeconds <= 0 || actor.isStuck()) {
+        if (due(actor, decideAt) || actor.isStuck()) {
             remember(interest);
             restFor(actor, randomBetween(actor, REST_MIN_SECONDS, REST_MAX_SECONDS));
             return;
@@ -243,8 +246,7 @@ public final class FollowBehaviour implements PetBehaviour {
     private void study(PetActor actor) {
         actor.stand();
         actor.face(interest);
-        modeSeconds -= actor.deltaSeconds();
-        if (modeSeconds <= 0) {
+        if (due(actor, decideAt)) {
             actor.setSitting(false);
             restFor(actor, randomBetween(actor, REST_MIN_SECONDS, REST_MAX_SECONDS));
         }
@@ -263,10 +265,8 @@ public final class FollowBehaviour implements PetBehaviour {
     }
 
     private void wander(PetActor actor, PetBehaviourSettings settings) {
-        modeSeconds -= actor.deltaSeconds();
-
         boolean arrived = wanderTarget == null || horizontalDistance(actor.position(), wanderTarget) < ARRIVED;
-        if (arrived || modeSeconds <= 0 || actor.isStuck()) {
+        if (arrived || due(actor, decideAt) || actor.isStuck()) {
             wanderTarget = null;
             restFor(actor, randomBetween(actor, REST_MIN_SECONDS, REST_MAX_SECONDS));
             return;
@@ -278,10 +278,25 @@ public final class FollowBehaviour implements PetBehaviour {
 
     private void restFor(PetActor actor, float seconds) {
         mode = Mode.REST;
-        modeSeconds = seconds;
+        decideAt = deadline(actor, seconds);
         wanderTarget = null;
-        glanceSeconds = 0;
+        glanceAt = 0;
         actor.stand();
+    }
+
+    /**
+     * A moment in world time, rounded onto the decision grid. Using the world
+     * clock rather than counting down from whenever this client happened to
+     * start the pet is what keeps two players' copies in step.
+     */
+    private static long deadline(PetActor actor, float seconds) {
+        long ticks = Math.max(SLOT, Math.round(seconds * 20.0 / SLOT) * SLOT);
+        long boundary = (actor.worldTime() / SLOT) * SLOT;
+        return boundary + ticks;
+    }
+
+    private static boolean due(PetActor actor, long when) {
+        return actor.worldTime() >= when;
     }
 
     private Vec3 pickSpotAround(PetActor actor, Vec3 centre, double radius) {
