@@ -1,6 +1,6 @@
 package dev.lovepaw.behaviour;
 
-import dev.lovepaw.pet.PetBehaviourSettings;
+import dev.lovepaw.pet.PetKind;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
@@ -41,7 +41,7 @@ class FollowBehaviourTest {
         simulate(behaviour, actor, 400);
 
         double fromAnchor = actor.position.distanceTo(Vec3.ZERO);
-        assertTrue(fromAnchor < PetBehaviourSettings.DEFAULT.wanderRadius() + 2,
+        assertTrue(fromAnchor < PetKind.GROUND.strollRadius() + 2,
                 "should potter about its own patch, not follow the owner around; was " + fromAnchor);
         assertFalse(actor.teleported);
     }
@@ -123,10 +123,10 @@ class FollowBehaviourTest {
     }
 
     @Test
-    void staysPutWhenWanderingIsTurnedOff() {
+    void staysPutWithNowhereToStrollTo() {
         TestActor actor = new TestActor();
         actor.position = new Vec3(0.5, 0, 0);
-        actor.settings = withWander(false);
+        actor.nowhereToStand = true;
 
         simulate(new FollowBehaviour(), actor, 600);
 
@@ -137,7 +137,7 @@ class FollowBehaviourTest {
     void watchesTheOwnerInGlancesRatherThanTrackingThem() {
         TestActor actor = new TestActor();
         actor.position = new Vec3(1, 0, 0);
-        actor.settings = withWander(false);
+        actor.nowhereToStand = true;
         FollowBehaviour behaviour = new FollowBehaviour();
 
         simulate(behaviour, actor, 5);
@@ -161,7 +161,7 @@ class FollowBehaviourTest {
         TestActor actor = new TestActor();
         actor.position = new Vec3(1, 0, 0);
         actor.ownerPosition = new Vec3(0, 0, 0);
-        actor.settings = withWander(false);
+        actor.nowhereToStand = true;
         FollowBehaviour behaviour = new FollowBehaviour();
 
         boolean lookedSomewhereElse = false;
@@ -177,11 +177,11 @@ class FollowBehaviourTest {
     @Test
     void doesNotWaitOutASitItCannotDo() {
         TestActor canSit = new TestActor();
-        canSit.settings = withWander(false);
+        canSit.nowhereToStand = true;
         simulate(new FollowBehaviour(), canSit, 600);
 
         TestActor cannotSit = new TestActor();
-        cannotSit.settings = withWander(false);
+        cannotSit.nowhereToStand = true;
         cannotSit.canSit = false;
         simulate(new FollowBehaviour(), cannotSit, 600);
 
@@ -246,7 +246,7 @@ class FollowBehaviourTest {
         TestActor actor = new TestActor();
         actor.position = new Vec3(0.5, 0, 0);
         actor.interesting = new Vec3(7, 0, 0);
-        actor.settings = withWander(false);
+        actor.nowhereToStand = true;
 
         simulate(new FollowBehaviour(), actor, 600);
 
@@ -314,8 +314,10 @@ class FollowBehaviourTest {
         mine.position = new Vec3(0.5, 0, 0.5);
         theirs.position = new Vec3(5.5, 0, 0.5);
         mine.time = theirs.time = 1000;
-        mine.neighbours = List.of(new PetActor.Nearby(theirs.owner, theirs.position, 1f));
-        theirs.neighbours = List.of(new PetActor.Nearby(mine.owner, mine.position, 1f));
+        mine.neighbours = List.of(new PetActor.Nearby(theirs.owner, theirs.position,
+                theirs.kind.playfulness()));
+        theirs.neighbours = List.of(new PetActor.Nearby(mine.owner, mine.position,
+                mine.kind.playfulness()));
         return new TestActor[]{mine, theirs};
     }
 
@@ -328,15 +330,22 @@ class FollowBehaviourTest {
             }
         }
         pets[0].neighbours = List.of(new PetActor.Nearby(pets[1].owner, pets[1].position,
-                pets[1].settings.playfulness()));
+                pets[1].kind.playfulness()));
         pets[1].neighbours = List.of(new PetActor.Nearby(pets[0].owner, pets[0].position,
-                pets[0].settings.playfulness()));
+                pets[0].kind.playfulness()));
         minds[0].tick(pets[0]);
         minds[1].tick(pets[1]);
     }
 
+    /**
+     * Whether a pet is making for another one. The target has to be somewhere
+     * the pet is not already standing: a resting pet whose own spot the other
+     * one happens to fly over is not chasing anybody.
+     */
     private static boolean heading(TestActor pet, TestActor at) {
-        return pet.lastWalkTarget != null && pet.lastWalkTarget.distanceTo(at.position) < 1.0;
+        return pet.lastWalkTarget != null
+                && pet.lastWalkTarget.distanceTo(at.position) < 1.0
+                && pet.lastWalkTarget.distanceTo(pet.position) > 1.5;
     }
 
     @Test
@@ -365,45 +374,38 @@ class FollowBehaviourTest {
         }
     }
 
+    /**
+     * A cat and a flying pet play together, and still agree about it.
+     *
+     * <p>Each pet asks its own kind how playful it is, so two kinds are two
+     * numbers. Taking the lower of the two is what keeps the answer the same on
+     * both clients — without it, one pet would give chase while the other stood
+     * there wondering what was going on.
+     */
     @Test
-    void aPetThatDoesNotPlayIsLeftAlone() {
+    void twoPetsOfDifferentKindsStillAgreeOnWhoIsChasing() {
         TestActor[] pets = pair(7L);
-        pets[0].settings = withPlayfulness(0);
+        pets[1].kind = PetKind.FLYING;
         FollowBehaviour[] minds = {new FollowBehaviour(), new FollowBehaviour()};
 
+        boolean played = false;
         for (int tick = 0; tick < 2000; tick++) {
             playTick(minds, pets);
-            assertFalse(heading(pets[1], pets[0]),
-                    "nobody should be chased into a game they do not play");
+            boolean mine = heading(pets[0], pets[1]);
+            boolean theirs = heading(pets[1], pets[0]);
+            assertFalse(mine && theirs, "they cannot both be the chaser at tick " + tick);
+            played |= mine || theirs;
         }
-    }
 
-    private static PetBehaviourSettings withPlayfulness(float playfulness) {
-        PetBehaviourSettings b = PetBehaviourSettings.DEFAULT;
-        return new PetBehaviourSettings(
-                b.type(), b.anchorRadius(), b.stopDistance(), b.teleportDistance(),
-                b.walkSpeed(), b.runSpeed(), b.runDistance(), b.gravity(), b.stepHeight(),
-                b.jumpPower(), b.width(), b.height(), b.canSwim(), b.hover(), b.hoverHeight(),
-                b.hoverDrift(), b.wander(), b.wanderRadius(), b.wanderSpeed(), b.sitChance(),
-                b.curiosity(), b.interestRadius(), playfulness, b.predictionSeconds());
-    }
-
-    private static PetBehaviourSettings withWander(boolean wander) {
-        PetBehaviourSettings base = PetBehaviourSettings.DEFAULT;
-        return new PetBehaviourSettings(
-                base.type(), base.anchorRadius(), base.stopDistance(), base.teleportDistance(),
-                base.walkSpeed(), base.runSpeed(), base.runDistance(), base.gravity(), base.stepHeight(),
-                base.jumpPower(),
-                base.width(), base.height(), base.canSwim(), base.hover(), base.hoverHeight(),
-                base.hoverDrift(),
-                wander, base.wanderRadius(), base.wanderSpeed(), base.sitChance(),
-                base.curiosity(), base.interestRadius(), base.playfulness(), base.predictionSeconds());
+        assertTrue(played, "a cat and a flyer side by side should get into a game at all");
     }
 
     private static class TestActor implements PetActor {
         private final RandomSource random = RandomSource.create(1234L);
 
-        PetBehaviourSettings settings = PetBehaviourSettings.DEFAULT;
+        PetKind kind = PetKind.GROUND;
+        /** True when there is nowhere it could stroll or go and look, so it stays put. */
+        boolean nowhereToStand;
         Vec3 position = Vec3.ZERO;
         Vec3 ownerPosition = Vec3.ZERO;
         Vec3 ownerVelocity = Vec3.ZERO;
@@ -473,8 +475,8 @@ class FollowBehaviourTest {
         }
 
         @Override
-        public PetBehaviourSettings settings() {
-            return settings;
+        public PetKind kind() {
+            return kind;
         }
 
         @Override
@@ -563,7 +565,7 @@ class FollowBehaviourTest {
 
         @Override
         public Vec3 findStandingSpot(Vec3 near) {
-            return new Vec3(near.x, 0, near.z);
+            return nowhereToStand ? null : new Vec3(near.x, 0, near.z);
         }
     }
 }

@@ -3,7 +3,6 @@ package dev.lovepaw.client.screen;
 import dev.lovepaw.client.PetManager;
 import dev.lovepaw.config.ClientConfig;
 import dev.lovepaw.config.PetOverrides;
-import dev.lovepaw.pet.PetBehaviourSettings;
 import dev.lovepaw.pet.PetDefinition;
 import dev.lovepaw.pet.PetRegistry;
 import dev.lovepaw.pet.PetRenderSettings;
@@ -18,15 +17,18 @@ import net.minecraft.resources.ResourceLocation;
 import java.util.Locale;
 
 /**
- * Tweaks for the player's own pet, applied over whatever its pack asks for.
+ * How big the player's own pet is.
  *
- * <p>The world keeps running behind this screen on purpose: a slider changes
- * the live pet on the next tick, so you can watch it take effect rather than
+ * <p>There is one slider because there is one thing here worth deciding. How a
+ * pet moves comes from the game — a cat, a wolf, an allay — and no longer from
+ * a screenful of numbers nobody could guess good values for.
+ *
+ * <p>The world keeps running behind this screen on purpose: the slider changes
+ * the live pet on the next tick, so you watch it take effect rather than
  * guessing and reopening.
  */
 public class PetSettingsScreen extends Screen {
     private static final int WIDTH = 220;
-    private static final int ROW = 22;
 
     private final Screen parent;
 
@@ -37,47 +39,15 @@ public class PetSettingsScreen extends Screen {
 
     @Override
     protected void init() {
-        PetBehaviourSettings behaviour = currentBehaviour();
         PetRenderSettings render = currentRender();
 
         int left = width / 2 - WIDTH / 2;
         int top = 46;
 
         addRenderableWidget(new Setting(left, top, WIDTH,
-                "lovepaw.settings.anchor_radius", 1f, 24f, 0.5f,
-                behaviour.anchorRadius(), PetSettingsScreen::blocks,
-                value -> update(overrides -> overrides.withAnchorRadius(value))));
-
-        addRenderableWidget(new Setting(left, top + ROW, WIDTH,
-                "lovepaw.settings.prediction", 0f, 3f, 0.1f,
-                behaviour.predictionSeconds(), PetSettingsScreen::seconds,
-                value -> update(overrides -> overrides.withPredictionSeconds(value))));
-
-        addRenderableWidget(new Setting(left, top + ROW * 2, WIDTH,
-                "lovepaw.settings.wander_radius", 1.5f, 16f, 0.5f,
-                behaviour.wanderRadius(), PetSettingsScreen::blocks,
-                value -> update(overrides -> overrides.withWanderRadius(value))));
-
-        addRenderableWidget(new Setting(left, top + ROW * 3, WIDTH,
-                "lovepaw.settings.sit_chance", 0f, 1f, 0.05f,
-                behaviour.sitChance(), PetSettingsScreen::percent,
-                value -> update(overrides -> overrides.withSitChance(value))));
-
-        addRenderableWidget(new Setting(left, top + ROW * 4, WIDTH,
                 "lovepaw.settings.scale", 0.25f, 3f, 0.05f,
                 render.scale(), PetSettingsScreen::multiplier,
                 value -> update(overrides -> overrides.withScale(value))));
-
-        addRenderableWidget(Button.builder(
-                        Component.translatable(behaviour.wander()
-                                ? "lovepaw.settings.wander_on"
-                                : "lovepaw.settings.wander_off"),
-                        button -> {
-                            update(overrides -> overrides.withWander(!currentBehaviour().wander()));
-                            rebuildWidgets();
-                        })
-                .bounds(left, top + ROW * 5 + 4, WIDTH, 20)
-                .build());
 
         int bottom = height - 28;
         addRenderableWidget(Button.builder(Component.translatable("lovepaw.settings.reset"), button -> {
@@ -91,12 +61,6 @@ public class PetSettingsScreen extends Screen {
         addRenderableWidget(Button.builder(CommonComponents.GUI_DONE, button -> onClose())
                 .bounds(left + WIDTH - 80, bottom, 80, 20)
                 .build());
-    }
-
-    private PetBehaviourSettings currentBehaviour() {
-        PetDefinition pet = selectedPet();
-        PetBehaviourSettings base = pet != null ? pet.behaviour() : PetBehaviourSettings.DEFAULT;
-        return ClientConfig.overrides().applyTo(base);
     }
 
     private PetRenderSettings currentRender() {
@@ -131,18 +95,6 @@ public class PetSettingsScreen extends Screen {
     @Override
     public boolean isPauseScreen() {
         return false;
-    }
-
-    private static String blocks(float value) {
-        return String.format(Locale.ROOT, "%.1f", value);
-    }
-
-    private static String seconds(float value) {
-        return String.format(Locale.ROOT, "%.1f", value);
-    }
-
-    private static String percent(float value) {
-        return Math.round(value * 100) + "%";
     }
 
     private static String multiplier(float value) {

@@ -46,40 +46,37 @@ point where a future pet catalogue would offer to download it.
 - Pick a pet, or "No pet" to put it away
 - The picker also toggles whether you see other players' pets
 
-A pet lives in a patch of ground rather than on a leash. While you stay near where you
-settled it ignores you and gets on with its own life — wandering to spots it picks itself,
+A pet behaves like an animal already in the game. One that walks behaves like a tamed cat
+or wolf; one that flies behaves like an allay carrying something you handed it. A pack says
+which of the two its pet is, and nothing else about how it moves — those numbers are the
+game's, not a list of sliders to guess at.
+
+So: it lives in a patch of ground rather than on a leash. While you stay near where you
+settled it ignores you and gets on with its own life — strolling to spots it picks itself,
 going over to look at things it notices (a bed, a sign, a painting, somebody else's
 chicken), playing chase with another player's pet that wanders past, sitting down, looking
-around. Walk far enough away and it moves house: it works out where
-you are heading and runs to a spot *there*, arriving alongside you rather than trailing
-behind. How big its patch is, how far ahead it aims and how often it sits are all per-pet
-settings — see [docs/pet-format.md](docs/pet-format.md).
+around. Walk far enough away and it moves house: it works out where you are heading and
+runs to a spot *there*, arriving alongside you rather than trailing behind. Get properly
+far ahead and it appears beside you, the way a cat does.
 
-The **Settings** button in the picker tunes your own pet with live sliders — how far you
-can wander off before it moves, how far ahead of you it aims, how big its patch is, how
-often it sits, its size, and whether it wanders at all. The world keeps running behind the
-screen, so you watch each change take effect. "Back to pet defaults" clears the lot.
+The **Settings** button in the picker sets how big your own pet is, and that is all there
+is on it. The world keeps running behind the screen, so you watch the change take effect.
 
-Those tweaks live in `config/lovepaw-client.json` alongside your pet choice:
+It lives in `config/lovepaw-client.json` alongside your pet choice:
 
 ```json
 {
   "selected_pet": "lovepaw:cat",
   "show_other_players_pets": true,
+  "download_player_pets": true,
   "overrides": {
-    "anchor_radius": 5.0,
-    "prediction_seconds": 1.2,
-    "wander_radius": 4.5,
-    "sit_chance": 0.35,
-    "wander": true,
     "scale": 1.0
   }
 }
 ```
 
-Anything left out of `overrides` is left to the pet, which is the point: a pack author's
-numbers stay in force until you actually decide otherwise. Tweaks apply to your own pet
-only — other players' pets keep the settings their packs give them.
+An empty `overrides` leaves the pet the size its author drew it. It applies to your own pet
+only — other players' pets stay as their authors made them.
 
 Server settings live in `config/lovepaw-server.json`:
 
@@ -111,9 +108,8 @@ nothing to enable: export from Blockbench into the folder and press the key.
 
 The same folder shipped inside a resource pack, under
 `assets/<your_namespace>/lovepaw/pets/<pet_name>/`, is how you hand a pet to somebody else
-— then its id is `your_namespace:pet_name`. The full format reference, including every
-behaviour knob and how to export from Blockbench, is in
-[docs/pet-format.md](docs/pet-format.md).
+— then its id is `your_namespace:pet_name`. The full format reference, including how to
+export from Blockbench, is in [docs/pet-format.md](docs/pet-format.md).
 
 ## Building
 

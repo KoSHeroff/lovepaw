@@ -20,25 +20,6 @@
   },
 
   "behaviour": {
-    "type": "follow",
-    "hover": true,
-    "hover_height": 1.8,
-    "hover_drift": 1.2,
-    "anchor_radius": 6.0,
-    "prediction_seconds": 1.2,
-    "stop_distance": 1.0,
-    "run_distance": 6.0,
-    "teleport_distance": 20.0,
-    "walk_speed": 0.18,
-    "run_speed": 0.32,
-    "width": 0.5,
-    "height": 0.5,
-    "can_swim": false,
-    "jump_power": 0,
-
-    "wander": true,
-    "wander_radius": 4.5,
-    "wander_speed": 0.12,
-    "sit_chance": 0
+    "type": "flying"
   }
 }

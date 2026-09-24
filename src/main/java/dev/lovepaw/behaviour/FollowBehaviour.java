@@ -1,6 +1,6 @@
 package dev.lovepaw.behaviour;
 
-import dev.lovepaw.pet.PetBehaviourSettings;
+import dev.lovepaw.pet.PetKind;
 import net.minecraft.world.phys.Vec3;
 
 import net.minecraft.util.RandomSource;
@@ -14,9 +14,10 @@ import java.util.UUID;
  * The default behaviour: a pet lives in a patch of ground, not on a leash.
  *
  * <p>The patch has an anchor — normally wherever the owner last settled. While
- * the owner stays within {@code anchor_radius} of it the pet ignores them
- * entirely and gets on with its own life: wandering to spots it picks itself,
- * looking around, sitting down.
+ * the owner stays near it the pet ignores them entirely and gets on with its
+ * own life: wandering to spots it picks itself, looking around, sitting down.
+ * That is a tamed cat's day, and how far it strays is the cat's business, not
+ * the pack author's — the numbers all come from {@link PetKind}.
  *
  * <p>When the owner leaves that radius the pet moves house rather than giving
  * chase. It works out where the owner is heading from how they are moving,
@@ -93,38 +94,38 @@ public final class FollowBehaviour implements PetBehaviour {
 
     @Override
     public void tick(PetActor actor) {
-        PetBehaviourSettings settings = actor.settings();
+        PetKind kind = actor.kind();
 
         if (anchor == null) {
             anchor = actor.ownerPosition();
         }
 
-        if (actor.distanceToOwner() > settings.teleportDistance()) {
+        if (actor.distanceToOwner() > kind.teleportDistance()) {
             actor.teleportToOwner();
             anchor = actor.ownerPosition();
             restFor(actor, REST_MIN_SECONDS);
             return;
         }
 
-        boolean ownerLeftThePatch = horizontalDistance(actor.ownerPosition(), anchor) > settings.anchorRadius();
+        boolean ownerLeftThePatch = horizontalDistance(actor.ownerPosition(), anchor) > kind.followRadius();
         if (ownerLeftThePatch || mode == Mode.RELOCATE) {
-            aimAtOwner(actor, settings);
+            aimAtOwner(actor, kind);
         }
 
         switch (mode) {
-            case RELOCATE -> relocate(actor, settings);
-            case WANDER -> wander(actor, settings);
-            case INSPECT -> inspect(actor, settings);
+            case RELOCATE -> relocate(actor, kind);
+            case WANDER -> wander(actor, kind);
+            case INSPECT -> inspect(actor, kind);
             case STUDY -> study(actor);
-            case PLAY -> play(actor, settings);
-            case REST -> rest(actor, settings);
+            case PLAY -> play(actor, kind);
+            case REST -> rest(actor, kind);
         }
     }
 
-    private void aimAtOwner(PetActor actor, PetBehaviourSettings settings) {
+    private void aimAtOwner(PetActor actor, PetKind kind) {
         actor.setSitting(false);
         wanderTarget = null;
-        anchor = predictOwner(actor, settings);
+        anchor = predictOwner(actor, kind);
 
         boolean needsTarget = mode != Mode.RELOCATE
                 || travelTarget == null
@@ -132,7 +133,7 @@ public final class FollowBehaviour implements PetBehaviour {
                 || horizontalDistance(travelAnchor, anchor) > RETARGET_DISTANCE;
 
         if (needsTarget) {
-            Vec3 target = pickSpotAround(actor, anchor, settings.wanderRadius() * 0.5);
+            Vec3 target = pickSpotAround(actor, anchor, kind.strollRadius() * 0.5);
             travelTarget = target != null ? target : anchor;
             travelAnchor = anchor;
         }
@@ -140,11 +141,11 @@ public final class FollowBehaviour implements PetBehaviour {
         mode = Mode.RELOCATE;
     }
 
-    private Vec3 predictOwner(PetActor actor, PetBehaviourSettings settings) {
+    private Vec3 predictOwner(PetActor actor, PetKind kind) {
         Vec3 owner = actor.ownerPosition();
         Vec3 velocity = actor.ownerVelocity();
 
-        double lead = settings.predictionSeconds() * 20;
+        double lead = kind.predictionSeconds() * 20;
         Vec3 ahead = new Vec3(velocity.x * lead, 0, velocity.z * lead);
         double length = ahead.length();
         if (length > MAX_LEAD) {
@@ -156,14 +157,14 @@ public final class FollowBehaviour implements PetBehaviour {
         return standing != null ? standing : owner;
     }
 
-    private void relocate(PetActor actor, PetBehaviourSettings settings) {
+    private void relocate(PetActor actor, PetKind kind) {
         double distance = horizontalDistance(actor.position(), travelTarget);
-        if (distance <= Math.max(ARRIVED, settings.stopDistance())) {
+        if (distance <= Math.max(ARRIVED, kind.stopDistance())) {
             restFor(actor, randomBetween(actor, REST_MIN_SECONDS, REST_MAX_SECONDS));
             return;
         }
 
-        float speed = distance > settings.runDistance() ? settings.runSpeed() : settings.walkSpeed();
+        float speed = distance > kind.runDistance() ? kind.runSpeed() : kind.walkSpeed();
         actor.walkTowards(travelTarget, speed);
         actor.faceMotion();
 
@@ -174,7 +175,7 @@ public final class FollowBehaviour implements PetBehaviour {
         }
     }
 
-    private void rest(PetActor actor, PetBehaviourSettings settings) {
+    private void rest(PetActor actor, PetKind kind) {
         actor.stand();
 
         if (due(actor, glanceAt)) {
@@ -193,17 +194,17 @@ public final class FollowBehaviour implements PetBehaviour {
             return;
         }
 
-        if (settings.wander() && startPlaying(actor, settings)) {
+        if (startPlaying(actor, kind)) {
             return;
         }
 
-        if (settings.wander() && actor.random().nextFloat() < settings.curiosity()
-                && goAndLook(actor, settings)) {
+        if (actor.random().nextFloat() < kind.curiosity()
+                && goAndLook(actor, kind)) {
             return;
         }
 
-        if (settings.wander() && actor.random().nextFloat() > settings.sitChance()) {
-            Vec3 target = pickSpotAround(actor, anchor, settings.wanderRadius());
+        if (actor.random().nextFloat() > kind.sitChance()) {
+            Vec3 target = pickSpotAround(actor, anchor, kind.strollRadius());
             if (target != null && horizontalDistance(actor.position(), target) > ARRIVED) {
                 mode = Mode.WANDER;
                 wanderTarget = target;
@@ -225,8 +226,8 @@ public final class FollowBehaviour implements PetBehaviour {
      * only ever ambles to a random patch of ground is a screensaver; noticing
      * the bed, the sign, somebody's chicken is what reads as alive.
      */
-    private boolean goAndLook(PetActor actor, PetBehaviourSettings settings) {
-        Vec3 thing = actor.findSomethingInteresting(anchor, settings.interestRadius());
+    private boolean goAndLook(PetActor actor, PetKind kind) {
+        Vec3 thing = actor.findSomethingInteresting(anchor, kind.interestRadius());
         if (thing == null || seenLately(thing)) {
             return false;
         }
@@ -243,7 +244,7 @@ public final class FollowBehaviour implements PetBehaviour {
         return true;
     }
 
-    private void inspect(PetActor actor, PetBehaviourSettings settings) {
+    private void inspect(PetActor actor, PetKind kind) {
         double distance = horizontalDistance(actor.position(), interest);
 
         if (distance <= CLOSE_ENOUGH_TO_LOOK) {
@@ -263,7 +264,7 @@ public final class FollowBehaviour implements PetBehaviour {
             return;
         }
 
-        actor.walkTowards(interest, settings.wanderSpeed());
+        actor.walkTowards(interest, kind.strollSpeed());
         actor.faceMotion();
     }
 
@@ -294,15 +295,15 @@ public final class FollowBehaviour implements PetBehaviour {
      * seeded from the pair of owners and the world clock, so neither has to
      * tell the other anything. Whichever is the chaser is decided the same way.
      */
-    private boolean startPlaying(PetActor actor, PetBehaviourSettings settings) {
-        if (settings.playfulness() <= 0) {
+    private boolean startPlaying(PetActor actor, PetKind kind) {
+        if (kind.playfulness() <= 0) {
             return false;
         }
-        for (PetActor.Nearby other : actor.petsNearby(settings.interestRadius())) {
+        for (PetActor.Nearby other : actor.petsNearby(kind.interestRadius())) {
             RandomSource dice = gameDice(actor, other.owner());
             // The shyer of the two sets the odds, so a pet whose pack says it
             // never plays is never dragged into a game.
-            if (dice.nextFloat() >= Math.min(settings.playfulness(), other.playfulness())) {
+            if (dice.nextFloat() >= Math.min(kind.playfulness(), other.playfulness())) {
                 continue;
             }
             playmate = other.owner();
@@ -314,9 +315,9 @@ public final class FollowBehaviour implements PetBehaviour {
         return false;
     }
 
-    private void play(PetActor actor, PetBehaviourSettings settings) {
+    private void play(PetActor actor, PetKind kind) {
         Vec3 them = null;
-        for (PetActor.Nearby other : actor.petsNearby(settings.interestRadius() * 1.5)) {
+        for (PetActor.Nearby other : actor.petsNearby(kind.interestRadius() * 1.5)) {
             if (other.owner().equals(playmate)) {
                 them = other.position();
             }
@@ -328,7 +329,7 @@ public final class FollowBehaviour implements PetBehaviour {
         }
 
         if (chasing(actor)) {
-            actor.walkTowards(them, settings.runSpeed());
+            actor.walkTowards(them, kind.runSpeed());
             actor.faceMotion();
             if (horizontalDistance(actor.position(), them) < TAGGED) {
                 actor.face(them);
@@ -346,7 +347,7 @@ public final class FollowBehaviour implements PetBehaviour {
                 ? anchor
                 : actor.position().add(away.x / length * RUN_TO, 0, away.z / length * RUN_TO);
 
-        double limit = settings.wanderRadius() * 1.5;
+        double limit = kind.strollRadius() * 1.5;
         Vec3 fromAnchor = target.subtract(anchor);
         double out = Math.sqrt(fromAnchor.x * fromAnchor.x + fromAnchor.z * fromAnchor.z);
         if (out > limit) {
@@ -354,7 +355,7 @@ public final class FollowBehaviour implements PetBehaviour {
         }
 
         Vec3 spot = actor.findStandingSpot(target);
-        actor.walkTowards(spot != null ? spot : target, settings.runSpeed());
+        actor.walkTowards(spot != null ? spot : target, kind.runSpeed());
         actor.faceMotion();
     }
 
@@ -397,7 +398,7 @@ public final class FollowBehaviour implements PetBehaviour {
         return min + dice.nextFloat() * (max - min);
     }
 
-    private void wander(PetActor actor, PetBehaviourSettings settings) {
+    private void wander(PetActor actor, PetKind kind) {
         boolean arrived = wanderTarget == null || horizontalDistance(actor.position(), wanderTarget) < ARRIVED;
         if (arrived || due(actor, decideAt) || actor.isStuck()) {
             wanderTarget = null;
@@ -405,7 +406,7 @@ public final class FollowBehaviour implements PetBehaviour {
             return;
         }
 
-        actor.walkTowards(wanderTarget, settings.wanderSpeed());
+        actor.walkTowards(wanderTarget, kind.strollSpeed());
         actor.faceMotion();
     }
 
