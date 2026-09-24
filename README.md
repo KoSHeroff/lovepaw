@@ -1,5 +1,7 @@
 # LovePaw
 
+![Build](https://github.com/KoSHeroff/lovepaw/actions/workflows/build.yml/badge.svg)
+
 Cosmetic pets that walk beside you in Minecraft. Pets are **data, not entities**: they are
 loaded from resource packs, simulated and drawn on the client, so the mod works on any
 server — including a vanilla one, where only you see your pet.
