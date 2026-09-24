@@ -52,10 +52,13 @@ public record PetOverrides(
                 base.canSwim(),
                 base.hover(),
                 base.hoverHeight(),
+                base.hoverDrift(),
                 wander != null ? wander : base.wander(),
                 wanderRadius != null ? wanderRadius : base.wanderRadius(),
                 base.wanderSpeed(),
                 sitChance != null ? sitChance : base.sitChance(),
+                base.curiosity(),
+                base.interestRadius(),
                 predictionSeconds != null ? predictionSeconds : base.predictionSeconds());
     }
 

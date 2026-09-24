@@ -45,7 +45,7 @@ public final class LovePawNeoForgeClient {
 
         @SubscribeEvent
         public static void onRegisterReloadListeners(RegisterClientReloadListenersEvent event) {
-            event.registerReloadListener(new PetResourceLoader());
+            event.registerReloadListener(new PetResourceLoader(FMLPaths.GAMEDIR.get()));
         }
 
         @SubscribeEvent

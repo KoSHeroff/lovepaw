@@ -26,7 +26,8 @@ public final class LovePawFabricClient implements ClientModInitializer {
     public void onInitializeClient() {
         ClientConfig.load(FabricLoader.getInstance().getConfigDir());
 
-        ResourceManagerHelper.get(PackType.CLIENT_RESOURCES).registerReloadListener(new FabricPetResourceLoader());
+        ResourceManagerHelper.get(PackType.CLIENT_RESOURCES).registerReloadListener(
+                new FabricPetResourceLoader(FabricLoader.getInstance().getGameDir()));
 
         PetManager.get().setSender(ClientPlayNetworking::send);
 

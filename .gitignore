@@ -3,6 +3,8 @@ build/
 versions/*/build/
 versions/*/.gradle/
 versions/*/run/
+versions/*/logs/
+logs/
 run/
 .idea/
 *.iml

@@ -100,11 +100,14 @@ public final class PetDefinitionParser {
                 clamp(number(json, "height", base.height()), 0.05f, 4f),
                 bool(json, "can_swim", base.canSwim()),
                 bool(json, "hover", base.hover()),
-                clamp(number(json, "hover_height", base.hoverHeight()), 0f, 4f),
+                clamp(number(json, "hover_height", base.hoverHeight()), 0f, 8f),
+                clamp(number(json, "hover_drift", base.hoverDrift()), 0f, 4f),
                 bool(json, "wander", base.wander()),
                 clamp(number(json, "wander_radius", base.wanderRadius()), 1.5f, 16f),
                 clamp(number(json, "wander_speed", base.wanderSpeed()), 0.01f, 1f),
                 clamp(number(json, "sit_chance", base.sitChance()), 0f, 1f),
+                clamp(number(json, "curiosity", base.curiosity()), 0f, 1f),
+                clamp(number(json, "interest_radius", base.interestRadius()), 0f, 24f),
                 clamp(number(json, "prediction_seconds", base.predictionSeconds()), 0f, 3f));
     }
 

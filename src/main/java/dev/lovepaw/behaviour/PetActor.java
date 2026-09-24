@@ -79,4 +79,11 @@ public interface PetActor {
      * there is none — used to avoid wandering into walls or off ledges.
      */
     Vec3 findStandingSpot(Vec3 near);
+
+    /**
+     * Something within {@code radius} of {@code near} worth going to look at —
+     * a bed, a sign, a painting, somebody else's chicken — or null when
+     * everything around is ordinary.
+     */
+    Vec3 findSomethingInteresting(Vec3 near, double radius);
 }

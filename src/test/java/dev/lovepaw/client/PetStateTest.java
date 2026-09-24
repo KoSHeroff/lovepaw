@@ -68,7 +68,8 @@ class PetStateTest {
         return new PetBehaviourSettings(
                 b.type(), b.anchorRadius(), b.stopDistance(), b.teleportDistance(),
                 b.walkSpeed(), b.runSpeed(), b.runDistance(), b.gravity(), b.stepHeight(),
-                jumpPower, b.width(), b.height(), b.canSwim(), hover, b.hoverHeight(),
-                b.wander(), b.wanderRadius(), b.wanderSpeed(), b.sitChance(), b.predictionSeconds());
+                jumpPower, b.width(), b.height(), b.canSwim(), hover, b.hoverHeight(), b.hoverDrift(),
+                b.wander(), b.wanderRadius(), b.wanderSpeed(), b.sitChance(),
+                b.curiosity(), b.interestRadius(), b.predictionSeconds());
     }
 }

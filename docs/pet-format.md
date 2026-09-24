@@ -15,7 +15,32 @@ The pet's id is `<namespace>:<pet_name>`, taken from the path. Two packs can eac
 replaces it, which is how you re-skin a pet you did not make.
 
 After adding the folder, press **F3 + T** in game to reload resources; the pet appears in
-the picker (**P**).
+the picker (**G**).
+
+## Without a resource pack
+
+While you are making a pet, building a pack around it every time is a waste. Drop the
+folder straight into the game directory instead:
+
+```
+.minecraft/lovepaw/pets/<pet_name>/
+    pet.json
+    cat.geo.json
+    cat.png
+    cat.animation.json
+```
+
+The mod creates `lovepaw/pets/` on first run, so it is already there waiting. Export from
+Blockbench into the folder, press **F3 + T**, and the pet is in the picker — no
+`pack.mcmeta`, no namespace, nothing to enable.
+
+The id of a pet loaded this way is `local:<pet_name>`, so it can never collide with a pet
+from a pack, and the folder name has to work as one: lowercase letters, digits, `_`, `-`
+and `.`. Files are named plainly, sitting next to `pet.json`; the `namespace:path/file`
+form a pack may use does not work here, because these files are not in a pack.
+
+Other players will not see a pet you loaded this way — they do not have the files. That is
+the same as with a resource pack only you have installed.
 
 ## In Blockbench
 
@@ -140,12 +165,15 @@ Distances are blocks, speeds are blocks per tick (multiply by 20 for blocks per 
 | `jump_power` | `0.42` | Upward speed of a hop, used when it walks into something taller than `step_height`. Vanilla's `0.42` clears one block; `0` for a pet that never jumps. |
 | `width`, `height` | `0.5`, `0.7` | Collision box. Keep it close to the model or it will snag on doorways. |
 | `can_swim` | `true` | Float in water instead of sinking. |
-| `hover` | `false` | Ignore the ground entirely and float beside you — for ghosts, orbs, fairies. |
-| `hover_height` | `0.0` | Height above the owner while hovering. |
+| `hover` | `false` | Ignore the ground entirely and fly — for bees, ghosts, orbs, fairies. |
+| `hover_height` | `0.0` | How high above **the ground under it** a flying pet likes to be. Clamped to 0–8. |
+| `hover_drift` | `1.0` | How far above and below that it wanders of its own accord. `0` holds one height exactly. Clamped to 0–4. |
 | `wander` | `true` | Potter about on its own once it has caught up. |
 | `wander_radius` | `4.5` | How far from the owner it will wander. Clamped to 1.5–16. |
 | `wander_speed` | `0.10` | Speed while wandering; slower than `walk_speed` reads as ambling. |
 | `sit_chance` | `0.35` | Odds of sitting down instead of wandering, once it has nothing to do. |
+| `curiosity` | `0.4` | Odds of going to look at something nearby instead of wandering to a spot of its own. `0` for a pet that never investigates anything. |
+| `interest_radius` | `10.0` | How far around its patch it notices things worth a look. Clamped to 0–24. |
 
 ### What the pet does with all this
 
@@ -155,8 +183,8 @@ you last settled, and `wander_radius` is its size.
 - **while you stay within `anchor_radius` of that anchor** the pet ignores you and gets on
   with its own life: **resting** (standing, glancing your way now and then and off
   elsewhere the rest of the time — it holds each look for a few seconds rather than
-  tracking you), **wandering** to a spot in the patch it picked itself, or sitting down for
-  a while with odds of `sit_chance`
+  tracking you), **wandering** to a spot in the patch it picked itself, **going to look at
+  something** it noticed, or sitting down for a while with odds of `sit_chance`
 - **when you leave that radius** it moves house instead of giving chase: it works out
   where you are heading from how you are moving, anchors the patch `prediction_seconds`
   ahead of you, and runs to a spot in it — so it arrives alongside you rather than
@@ -164,11 +192,30 @@ you last settled, and `wander_radius` is its size.
   stop, the anchor settles where you stopped and the pet goes back to its own business
 - **walking into something** taller than `step_height` — a full block, a fence post — it
   hops over it, if its `jump_power` is not zero
+- **meeting something it cannot get over** — a wall, the corner of a house — it works out a
+  route round, block by block, and follows that until the place it was heading for moves.
+  It only bothers once walking straight has plainly failed, so the search costs nothing in
+  the open. A flying pet climbs over it instead
+
+A flying pet picks its own height rather than hanging at a fixed distance from you: it
+holds `hover_height` above whatever happens to be under it, drifts up and down within
+`hover_drift` of that on its own, rises when it runs into something, and ducks under a low
+ceiling. It only pays attention to where you are vertically when you get well above it —
+climb a tower and it will come up after you rather than wait by the ground.
 - **beyond `teleport_distance`**, or if it gets properly wedged on geometry, it gives up
   and appears next to you. The same rescue covers a pet that ends up inside a block, from
   a teleport into a tight spot or from a block placed on top of it
 
-Set `wander: false` for a pet that should stand still in its patch, and
+Things worth a look are the ones a player would notice: beds, signs, banners, paintings and
+item frames, candles and campfires, jukeboxes and note blocks, chests and barrels, anvils,
+bookshelves, amethyst, decorated pots — and anything alive that is not you. Stone and dirt
+are everywhere and say nothing, so they are not on the list. The pet ambles over, stands in
+front of the thing for a few seconds — sometimes sitting down to look at it properly — and
+then gets on with something else. It remembers the last handful of things it has studied,
+so it does not shuttle between the same two all afternoon.
+
+Set `curiosity: 0` for a pet that ignores the world, `wander: false` for a pet that should
+stand still in its patch, and
 `prediction_seconds: 0` for one that heads straight at where you are rather than where
 you are going. A small `anchor_radius` (say 3) gives the glued-to-your-heels feel.
 
@@ -246,6 +293,7 @@ Everything is logged with the file path. Check `logs/latest.log` for `LovePaw`.
 | Symptom | Usual cause |
 |---|---|
 | Pet missing from the picker | `pet.json` failed to parse, or the folder is not under `lovepaw/pets/`. The log names the file and the reason. |
+| A pet in `lovepaw/pets/` is missing | The folder name is not a valid id (uppercase or spaces), one of its files is not there, or `pet.json` names a file as `namespace:path`. The log says which. |
 | Purple and black model | The `texture` path does not point at your png. |
 | Model inside out or mirrored | Exported as something other than "Bedrock Model". |
 | Nothing animates | The names in `animations` do not match the names inside the animation file. |
