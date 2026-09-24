@@ -250,6 +250,7 @@ class FollowBehaviourTest {
                 base.walkSpeed(), base.runSpeed(), base.runDistance(), base.gravity(), base.stepHeight(),
                 base.jumpPower(),
                 base.width(), base.height(), base.canSwim(), base.hover(), base.hoverHeight(),
+                base.hoverDrift(),
                 wander, base.wanderRadius(), base.wanderSpeed(), base.sitChance(),
                 base.curiosity(), base.interestRadius(), base.predictionSeconds());
     }

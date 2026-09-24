@@ -22,7 +22,8 @@ package dev.lovepaw.pet;
  * @param height           collision box height
  * @param canSwim          float on water instead of sinking
  * @param hover            ignore gravity and hold a height above ground
- * @param hoverHeight      height held while hovering
+ * @param hoverHeight      height a hovering pet holds above the ground under it
+ * @param hoverDrift       how far above and below that it wanders of its own accord
  * @param wander           potter about on its own once it has caught up
  * @param wanderRadius     size of the patch it pothers about in
  * @param wanderSpeed      speed while wandering, usually slower than walking
@@ -48,6 +49,7 @@ public record PetBehaviourSettings(
         boolean canSwim,
         boolean hover,
         float hoverHeight,
+        float hoverDrift,
         boolean wander,
         float wanderRadius,
         float wanderSpeed,
@@ -72,6 +74,7 @@ public record PetBehaviourSettings(
             true,
             false,
             0f,
+            1.0f,
             true,
             4.5f,
             0.10f,

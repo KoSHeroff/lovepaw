@@ -51,6 +51,7 @@ public final class PetInstance implements PetActor {
     private final PetBehaviour behaviour;
     private final AnimationPlayer animation;
     private final PetNavigation navigation = new PetNavigation();
+    private final PetHover hover = new PetHover();
     private final MolangContext molang = new MolangContext();
 
     private final boolean local;
@@ -169,8 +170,16 @@ public final class PetInstance implements PetActor {
             verticalMotion = Math.min(0.08, verticalMotion + config.gravity() * 1.6);
             wanted = wanted.scale(0.6);
         } else if (config.hover()) {
-            double targetY = ownerPosition().y + config.hoverHeight();
-            verticalMotion = (targetY - position.y) * 0.15;
+            verticalMotion = hover.climb(
+                    PetPhysics.Space.of(level),
+                    position,
+                    config.width(),
+                    config.height(),
+                    config.hoverHeight(),
+                    config.hoverDrift(),
+                    ownerPosition().y,
+                    stuckTicks >= JUMP_AFTER_TICKS,
+                    level.random);
         } else {
             verticalMotion = Math.max(TERMINAL_VELOCITY, verticalMotion - config.gravity());
         }
@@ -336,6 +345,7 @@ public final class PetInstance implements PetActor {
         stuckTicks = 0;
         sitting = false;
         navigation.forget();
+        hover.forget();
     }
 
     /**

@@ -22,7 +22,8 @@
   "behaviour": {
     "type": "follow",
     "hover": true,
-    "hover_height": 1.4,
+    "hover_height": 1.8,
+    "hover_drift": 1.2,
     "anchor_radius": 6.0,
     "prediction_seconds": 1.2,
     "stop_distance": 1.0,

@@ -165,8 +165,9 @@ Distances are blocks, speeds are blocks per tick (multiply by 20 for blocks per 
 | `jump_power` | `0.42` | Upward speed of a hop, used when it walks into something taller than `step_height`. Vanilla's `0.42` clears one block; `0` for a pet that never jumps. |
 | `width`, `height` | `0.5`, `0.7` | Collision box. Keep it close to the model or it will snag on doorways. |
 | `can_swim` | `true` | Float in water instead of sinking. |
-| `hover` | `false` | Ignore the ground entirely and float beside you — for ghosts, orbs, fairies. |
-| `hover_height` | `0.0` | Height above the owner while hovering. |
+| `hover` | `false` | Ignore the ground entirely and fly — for bees, ghosts, orbs, fairies. |
+| `hover_height` | `0.0` | How high above **the ground under it** a flying pet likes to be. Clamped to 0–8. |
+| `hover_drift` | `1.0` | How far above and below that it wanders of its own accord. `0` holds one height exactly. Clamped to 0–4. |
 | `wander` | `true` | Potter about on its own once it has caught up. |
 | `wander_radius` | `4.5` | How far from the owner it will wander. Clamped to 1.5–16. |
 | `wander_speed` | `0.10` | Speed while wandering; slower than `walk_speed` reads as ambling. |
@@ -194,8 +195,13 @@ you last settled, and `wander_radius` is its size.
 - **meeting something it cannot get over** — a wall, the corner of a house — it works out a
   route round, block by block, and follows that until the place it was heading for moves.
   It only bothers once walking straight has plainly failed, so the search costs nothing in
-  the open. A hovering pet skips this and flies straight: it is usually above whatever is
-  in the way
+  the open. A flying pet climbs over it instead
+
+A flying pet picks its own height rather than hanging at a fixed distance from you: it
+holds `hover_height` above whatever happens to be under it, drifts up and down within
+`hover_drift` of that on its own, rises when it runs into something, and ducks under a low
+ceiling. It only pays attention to where you are vertically when you get well above it —
+climb a tower and it will come up after you rather than wait by the ground.
 - **beyond `teleport_distance`**, or if it gets properly wedged on geometry, it gives up
   and appears next to you. The same rescue covers a pet that ends up inside a block, from
   a teleport into a tight spot or from a block placed on top of it
