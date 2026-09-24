@@ -44,12 +44,17 @@ public final class PetRenderer {
     private PetRenderer() {
     }
 
-    public static void render(PetInstance pet,
-                              BlockAndTintGetter level,
-                              PoseStack poseStack,
-                              MultiBufferSource buffers,
-                              Vec3 cameraPosition,
-                              float partialTick) {
+    /**
+     * The pet itself. Bodies and shadows are drawn in separate passes by the
+     * caller: they use different render types, and swapping between them once
+     * per pet ends a batch every time, which is most of what a crowd costs.
+     */
+    public static void renderBody(PetInstance pet,
+                                  BlockAndTintGetter level,
+                                  PoseStack poseStack,
+                                  MultiBufferSource buffers,
+                                  Vec3 cameraPosition,
+                                  float partialTick) {
         PetAssets assets = pet.assets();
         PetDefinition definition = pet.definition();
         PetRenderSettings settings = pet.renderSettings();
@@ -83,10 +88,21 @@ public final class PetRenderer {
         }
 
         poseStack.popPose();
+    }
 
-        if (settings.shadowRadius() > 0) {
-            renderShadow(level, poseStack, buffers, position, cameraPosition, settings.shadowRadius() * scale);
+    /** The drop shadow, drawn for every pet after all the bodies. */
+    public static void renderShadow(PetInstance pet,
+                                    BlockAndTintGetter level,
+                                    PoseStack poseStack,
+                                    MultiBufferSource buffers,
+                                    Vec3 cameraPosition,
+                                    float partialTick) {
+        PetRenderSettings settings = pet.renderSettings();
+        if (settings.shadowRadius() <= 0) {
+            return;
         }
+        renderShadow(level, poseStack, buffers, pet.renderPosition(partialTick), cameraPosition,
+                settings.shadowRadius() * settings.scale());
     }
 
     private static void renderShadow(BlockAndTintGetter level,
