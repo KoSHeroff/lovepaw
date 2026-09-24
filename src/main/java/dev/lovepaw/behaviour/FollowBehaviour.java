@@ -3,8 +3,12 @@ package dev.lovepaw.behaviour;
 import dev.lovepaw.pet.PetBehaviourSettings;
 import net.minecraft.world.phys.Vec3;
 
+import net.minecraft.util.RandomSource;
+
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.List;
+import java.util.UUID;
 
 /**
  * The default behaviour: a pet lives in a patch of ground, not on a leash.
@@ -46,6 +50,18 @@ public final class FollowBehaviour implements PetBehaviour {
      * asks the same seeded random the same question, so they all decide alike.
      */
     private static final long SLOT = 10;
+    /**
+     * A game belongs to a stretch of world time rather than to whoever started
+     * it. Both pets work out the same answers from the clock, so it does not
+     * matter that one of them joined a moment later than the other.
+     */
+    private static final long GAME_TICKS = 300;
+    /** How long one pet chases before they swap over. */
+    private static final long SWAP_TICKS = 60;
+    /** Close enough to have caught the other one. */
+    private static final double TAGGED = 1.2;
+    /** How far the one being chased tries to get away. */
+    private static final double RUN_TO = 5;
     private static final float SIT_AND_STARE = 0.4f;
 
     private enum Mode {
@@ -58,7 +74,9 @@ public final class FollowBehaviour implements PetBehaviour {
         /** On its way to something it noticed. */
         INSPECT,
         /** Stood in front of that something, looking at it. */
-        STUDY
+        STUDY,
+        /** Chasing another player's pet about, or being chased by it. */
+        PLAY
     }
 
     private Mode mode = Mode.REST;
@@ -70,6 +88,7 @@ public final class FollowBehaviour implements PetBehaviour {
     private long glanceAt;
     private Vec3 glanceTarget;
     private Vec3 interest;
+    private UUID playmate;
     private final Deque<Vec3> alreadySeen = new ArrayDeque<>();
 
     @Override
@@ -97,6 +116,7 @@ public final class FollowBehaviour implements PetBehaviour {
             case WANDER -> wander(actor, settings);
             case INSPECT -> inspect(actor, settings);
             case STUDY -> study(actor);
+            case PLAY -> play(actor, settings);
             case REST -> rest(actor, settings);
         }
     }
@@ -170,6 +190,10 @@ public final class FollowBehaviour implements PetBehaviour {
         if (actor.isSitting()) {
             actor.setSitting(false);
             restFor(actor, randomBetween(actor, REST_MIN_SECONDS, REST_MAX_SECONDS));
+            return;
+        }
+
+        if (settings.wander() && startPlaying(actor, settings)) {
             return;
         }
 
@@ -262,6 +286,115 @@ public final class FollowBehaviour implements PetBehaviour {
 
     private boolean seenLately(Vec3 thing) {
         return alreadySeen.stream().anyMatch(old -> old.distanceToSqr(thing) < SAME_THING * SAME_THING);
+    }
+
+    /**
+     * Looks for another player's pet to play with. Both pets work this out
+     * separately, on their own clients, and reach the same answer: the dice are
+     * seeded from the pair of owners and the world clock, so neither has to
+     * tell the other anything. Whichever is the chaser is decided the same way.
+     */
+    private boolean startPlaying(PetActor actor, PetBehaviourSettings settings) {
+        if (settings.playfulness() <= 0) {
+            return false;
+        }
+        for (PetActor.Nearby other : actor.petsNearby(settings.interestRadius())) {
+            RandomSource dice = gameDice(actor, other.owner());
+            // The shyer of the two sets the odds, so a pet whose pack says it
+            // never plays is never dragged into a game.
+            if (dice.nextFloat() >= Math.min(settings.playfulness(), other.playfulness())) {
+                continue;
+            }
+            playmate = other.owner();
+            decideAt = gameStart(actor) + GAME_TICKS;
+            mode = Mode.PLAY;
+            actor.setSitting(false);
+            return true;
+        }
+        return false;
+    }
+
+    private void play(PetActor actor, PetBehaviourSettings settings) {
+        Vec3 them = null;
+        for (PetActor.Nearby other : actor.petsNearby(settings.interestRadius() * 1.5)) {
+            if (other.owner().equals(playmate)) {
+                them = other.position();
+            }
+        }
+        if (them == null || due(actor, decideAt)) {
+            playmate = null;
+            restFor(actor, randomBetween(actor, REST_MIN_SECONDS, REST_MAX_SECONDS));
+            return;
+        }
+
+        if (chasing(actor)) {
+            actor.walkTowards(them, settings.runSpeed());
+            actor.faceMotion();
+            if (horizontalDistance(actor.position(), them) < TAGGED) {
+                actor.face(them);
+            }
+            return;
+        }
+
+        // Being chased: run away, but not out of the patch — the game is not
+        // worth losing its owner over. At the edge it runs round the far side
+        // rather than back into the chaser, which is what bolting for home
+        // used to amount to.
+        Vec3 away = actor.position().subtract(them);
+        double length = Math.sqrt(away.x * away.x + away.z * away.z);
+        Vec3 target = length < 0.01
+                ? anchor
+                : actor.position().add(away.x / length * RUN_TO, 0, away.z / length * RUN_TO);
+
+        double limit = settings.wanderRadius() * 1.5;
+        Vec3 fromAnchor = target.subtract(anchor);
+        double out = Math.sqrt(fromAnchor.x * fromAnchor.x + fromAnchor.z * fromAnchor.z);
+        if (out > limit) {
+            target = anchor.add(fromAnchor.x / out * limit, 0, fromAnchor.z / out * limit);
+        }
+
+        Vec3 spot = actor.findStandingSpot(target);
+        actor.walkTowards(spot != null ? spot : target, settings.runSpeed());
+        actor.faceMotion();
+    }
+
+    /** Who is chasing right now: they swap over, and both clients agree when. */
+    private boolean chasing(PetActor actor) {
+        long from = gameStart(actor);
+        RandomSource dice = pairDiceAt(actor, playmate, from);
+        dice.nextFloat();                                   // the roll that started it
+        boolean firstChasesFirst = dice.nextBoolean();
+        boolean iAmFirst = actor.ownerId().compareTo(playmate) <= 0;
+        boolean swapped = ((actor.worldTime() - from) / SWAP_TICKS) % 2 == 1;
+        return (iAmFirst == firstChasesFirst) != swapped;
+    }
+
+    /** The stretch of world time this game belongs to. */
+    private static long gameStart(PetActor actor) {
+        return (actor.worldTime() / GAME_TICKS) * GAME_TICKS;
+    }
+
+    private static RandomSource gameDice(PetActor actor, UUID other) {
+        return pairDiceAt(actor, other, gameStart(actor));
+    }
+
+    /**
+     * Dice both pets in a pair can roll and get the same number from, because
+     * the seed is the two owners and a moment in world time — nothing either
+     * client made up for itself.
+     */
+    private static RandomSource pairDiceAt(PetActor actor, UUID other, long at) {
+        UUID mine = actor.ownerId();
+        UUID first = mine.compareTo(other) <= 0 ? mine : other;
+        UUID second = first.equals(mine) ? other : mine;
+        long seed = first.getMostSignificantBits() * 31 + first.getLeastSignificantBits();
+        seed = seed * 31 + second.getMostSignificantBits();
+        seed = seed * 31 + second.getLeastSignificantBits();
+        return RandomSource.create(seed ^ (at * 0x9E3779B97F4A7C15L));
+    }
+
+    private static float randomBetween(RandomSource dice, float min, float max) {
+        return min + dice.nextFloat() * (max - min);
     }
 
     private void wander(PetActor actor, PetBehaviourSettings settings) {
