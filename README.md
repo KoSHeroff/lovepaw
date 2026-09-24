@@ -33,8 +33,8 @@ half work on a server that has never heard of the mod.
 
 Running it locally does not mean running it differently: a pet's decisions come from dice
 seeded by its owner and the world clock, so every client watching it sees the same pet
-doing the same thing. Your own pet is always simulated; somebody else's is only simulated while it is on your
-screen.
+doing the same thing. Every pet your client knows about is simulated whether or not you are looking at it — only
+drawing is skipped — so a pair of them can come past you already in the middle of a game.
 
 If someone wears a pet you do not have installed, nothing is drawn for them — this is the
 point where a future pet catalogue would offer to download it.

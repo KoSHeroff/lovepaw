@@ -149,13 +149,14 @@ public final class PetManager {
     }
 
     /**
-     * Other people's pets close to this one, and awake. A sleeping pet is not
-     * moving, and a pet that ran rings round a statue would look silly.
+     * Other people's pets close to this one. Every pet this client knows about
+     * is simulated, on screen or not, so one of them is always a real playmate
+     * rather than something standing still.
      */
     public List<PetActor.Nearby> petsNear(UUID excluding, Vec3 centre, double radius) {
         List<PetActor.Nearby> found = new ArrayList<>();
         for (PetInstance pet : instances.values()) {
-            if (pet.ownerId().equals(excluding) || pet.outOfSight()) {
+            if (pet.ownerId().equals(excluding)) {
                 continue;
             }
             if (pet.position().distanceToSqr(centre) > radius * radius) {
@@ -228,7 +229,6 @@ public final class PetManager {
                     new AABB(at.x - 1.5, at.y - 0.5, at.z - 1.5, at.x + 1.5, at.y + 2.5, at.z + 1.5))) {
                 continue;
             }
-            pet.seen();
             visible.add(pet);
         }
         return visible;
