@@ -5,6 +5,9 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.List;
+import java.util.UUID;
+
 /**
  * What a behaviour may know and do. The pet itself handles gravity, collision
  * and animation; a behaviour only decides where it wants to be and where it
@@ -15,7 +18,20 @@ import net.minecraft.world.phys.Vec3;
  * networking.
  */
 public interface PetActor {
+    /** Another pet within reach, as much of it as a behaviour needs to know. */
+    record Nearby(UUID owner, Vec3 position, float playfulness) {
+    }
+
     Vec3 position();
+
+    /** Whose pet this is. Two pets decide what to do together from their pair. */
+    UUID ownerId();
+
+    /**
+     * Other players' pets within {@code radius}, skipping any that are not
+     * being simulated on this client — a pet nobody can see cannot play.
+     */
+    List<Nearby> petsNearby(double radius);
 
     Vec3 ownerPosition();
 

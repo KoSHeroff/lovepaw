@@ -49,7 +49,8 @@ point where a future pet catalogue would offer to download it.
 A pet lives in a patch of ground rather than on a leash. While you stay near where you
 settled it ignores you and gets on with its own life — wandering to spots it picks itself,
 going over to look at things it notices (a bed, a sign, a painting, somebody else's
-chicken), sitting down, looking around. Walk far enough away and it moves house: it works out where
+chicken), playing chase with another player's pet that wanders past, sitting down, looking
+around. Walk far enough away and it moves house: it works out where
 you are heading and runs to a spot *there*, arriving alongside you rather than trailing
 behind. How big its patch is, how far ahead it aims and how often it sits are all per-pet
 settings — see [docs/pet-format.md](docs/pet-format.md).
