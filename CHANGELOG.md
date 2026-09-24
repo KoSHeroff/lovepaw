@@ -3,6 +3,16 @@
 Notable changes, newest first. Versions are `<mod>+mc<minecraft>`; the Minecraft
 half is not part of the mod's own numbering.
 
+## 0.4.1 — 2026-09-24
+
+### Changed
+
+- Every pet a client knows about is simulated again, on screen or not. Skipping the ones
+  nobody was looking at saved a few microseconds each and cost the thing those pets are for:
+  a game of chase only existed while somebody watched it, so two pets could never come
+  tearing past already in the middle of one. Drawing is still skipped for what cannot be
+  seen, which is where the cost actually was — twenty-five microseconds a pet against six.
+
 ## 0.4.0 — 2026-09-24
 
 ### Added

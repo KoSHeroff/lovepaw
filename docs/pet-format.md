@@ -228,13 +228,15 @@ stand still in its patch, and
 `prediction_seconds: 0` for one that heads straight at where you are rather than where
 you are going. A small `anchor_radius` (say 3) gives the glued-to-your-heels feel.
 
-Two things are worth knowing about how this is run. Your own pet is always simulated — it
-is either beside you or on its way there — while somebody else's pet thinks only while it
-is on your screen: off screen its behaviour, collision and route finding are all skipped,
-and it carries on from where it stood when it comes back into view. And every decision is
-taken on a shared clock with dice seeded from the pet's owner and the world time, so two
-players watching the same pet watch it do the same thing — one of them does not see it
-sitting on a chest while the other sees it sniffing a flower.
+Two things are worth knowing about how this is run. Every pet your client knows about is
+simulated, on screen or not — a pet exists on your client only while its owner is one of
+the players the server is telling you about, and that is a small enough crowd to think for
+all of it. Only drawing is skipped for what you cannot see, which is where the cost was.
+That is what lets two pets come tearing past you mid-game rather than starting one the
+moment you happen to look. And every decision is taken on a shared clock with dice seeded
+from the pet's owner and the world time, so two players watching the same pet watch it do
+the same thing — one of them does not see it sitting on a chest while the other sees it
+sniffing a flower.
 
 Note that a player can override `anchor_radius`, `prediction_seconds`, `wander_radius`,
 `sit_chance`, `wander` and `scale` for their own pet from the settings screen. Your values
