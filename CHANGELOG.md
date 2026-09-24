@@ -3,6 +3,19 @@
 Notable changes, newest first. Versions are `<mod>+mc<minecraft>`; the Minecraft
 half is not part of the mod's own numbering.
 
+## 0.4.0 — 2026-09-24
+
+### Added
+
+- **Pets play with each other.** When another player's pet comes within
+  `interest_radius`, the two of them may start a game of chase: one runs, the other goes
+  after it, and they swap over every few seconds until the game runs out. Neither pet tells
+  the other anything — whether there is a game on, who chases and how long it lasts all come
+  out of dice seeded from the pair of owners and the stretch of world time the game belongs
+  to, so both players watch the same chase. New `playfulness` in `pet.json`; the shyer of
+  two pets sets the odds, so `playfulness: 0` keeps a pet out of games rather than leaving
+  it to be chased.
+
 ## 0.3.0 — 2026-09-24
 
 ### Changed
