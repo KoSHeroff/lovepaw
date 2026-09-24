@@ -14,6 +14,7 @@ Install it on the server too and everyone sees everyone's pets.
 
 Russian version of this file: [README.ru.md](README.ru.md).
 Making a pet: [docs/pet-format.md](docs/pet-format.md).
+What changed when: [CHANGELOG.md](CHANGELOG.md).
 
 ## How it works
 

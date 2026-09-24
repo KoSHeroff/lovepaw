@@ -13,6 +13,7 @@
 - Без внешних зависимостей: поддержка Bedrock-моделей, анимаций и Molang написана внутри мода
 
 Формат питомца: [docs/pet-format.md](docs/pet-format.md).
+Что менялось: [CHANGELOG.md](CHANGELOG.md).
 
 ## Как это устроено
 
