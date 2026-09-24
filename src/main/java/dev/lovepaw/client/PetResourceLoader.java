@@ -1,17 +1,9 @@
 package dev.lovepaw.client;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.mojang.blaze3d.platform.NativeImage;
 import dev.lovepaw.LovePaw;
-import dev.lovepaw.model.anim.Animation;
-import dev.lovepaw.model.anim.AnimationParser;
-import dev.lovepaw.model.geo.GeoBaker;
-import dev.lovepaw.model.geo.GeoModel;
-import dev.lovepaw.model.geo.GeoParser;
-import dev.lovepaw.model.geo.baked.BakedGeoModel;
+import dev.lovepaw.pet.PetContent;
 import dev.lovepaw.pet.PetDefinition;
-import dev.lovepaw.pet.PetDefinitionParser;
 import dev.lovepaw.pet.PetRegistry;
 import dev.lovepaw.pet.PetSourceKind;
 import net.minecraft.client.Minecraft;
@@ -23,13 +15,11 @@ import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimplePreparableReloadListener;
 import net.minecraft.util.profiling.ProfilerFiller;
 
-import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -49,7 +39,6 @@ import java.util.Map;
  */
 public class PetResourceLoader extends SimplePreparableReloadListener<PetResourceLoader.Loaded> {
     public static final String PETS_FOLDER = "lovepaw/pets";
-    private static final String DEFINITION_FILE = "pet.json";
 
     /** Where folder pets are read from, or null when the mod runs without one. */
     private final Path localFolder;
@@ -62,7 +51,7 @@ public class PetResourceLoader extends SimplePreparableReloadListener<PetResourc
     }
 
     /** A pet and its baked assets, prepared off-thread before being applied. */
-    public record LoadedPet(PetDefinition definition, PetAssets assets) {
+    public record LoadedPet(PetDefinition definition, PetAssets assets, ResourceLocation folder) {
     }
 
     /** Everything one reload found, from both sources. */
@@ -75,12 +64,11 @@ public class PetResourceLoader extends SimplePreparableReloadListener<PetResourc
 
         Map<ResourceLocation, Resource> definitions = resourceManager.listResources(
                 PETS_FOLDER,
-                location -> location.getPath().endsWith("/" + DEFINITION_FILE));
+                location -> location.getPath().endsWith("/" + PetContent.DEFINITION));
 
-        for (Map.Entry<ResourceLocation, Resource> entry : definitions.entrySet()) {
-            ResourceLocation file = entry.getKey();
+        for (ResourceLocation file : definitions.keySet()) {
             try {
-                fromPacks.add(load(resourceManager, file, entry.getValue()));
+                fromPacks.add(load(resourceManager, file));
             } catch (Exception e) {
                 LovePaw.LOGGER.error("Skipping pet {}: {}", file, e.getMessage());
                 LovePaw.LOGGER.debug("Pet load failure", e);
@@ -99,11 +87,15 @@ public class PetResourceLoader extends SimplePreparableReloadListener<PetResourc
         registry.clearSource(PetSourceKind.RESOURCE_PACK);
         registry.clearSource(PetSourceKind.LOCAL);
         PetAssetCache cache = PetAssetCache.get();
-        cache.clear();
+        cache.clearSource(PetSourceKind.RESOURCE_PACK);
+        cache.clearSource(PetSourceKind.LOCAL);
+        PetOrigins.forgetSource(PetSourceKind.RESOURCE_PACK);
+        PetOrigins.forgetSource(PetSourceKind.LOCAL);
 
         for (LoadedPet pet : loaded.fromPacks()) {
             registry.register(pet.definition());
-            cache.put(pet.definition().id(), pet.assets());
+            cache.put(pet.definition().id(), PetSourceKind.RESOURCE_PACK, pet.assets());
+            PetOrigins.remember(pet.definition(), pet.folder(), null);
         }
 
         applyLocal(loaded.fromFolder(), registry, cache);
@@ -112,9 +104,9 @@ public class PetResourceLoader extends SimplePreparableReloadListener<PetResourc
     }
 
     /**
-     * Folder pets arrive with their texture still on disk: it has to be handed
-     * to the texture manager here, on the render thread, under the id the
-     * renderer will bind.
+     * Folder pets arrive with their texture still unread bytes: it has to be
+     * handed to the texture manager here, on the render thread, under the id
+     * the renderer will bind.
      */
     private void applyLocal(List<PetLocalLoader.LocalPet> pets, PetRegistry registry, PetAssetCache cache) {
         TextureManager textures = Minecraft.getInstance().getTextureManager();
@@ -125,7 +117,7 @@ public class PetResourceLoader extends SimplePreparableReloadListener<PetResourc
 
         for (PetLocalLoader.LocalPet pet : pets) {
             ResourceLocation texture = pet.definition().texture();
-            try (InputStream in = Files.newInputStream(pet.texture())) {
+            try (InputStream in = new ByteArrayInputStream(pet.texture())) {
                 textures.register(texture, new DynamicTexture(NativeImage.read(in)));
                 localTextures.add(texture);
             } catch (IOException e) {
@@ -134,47 +126,23 @@ public class PetResourceLoader extends SimplePreparableReloadListener<PetResourc
                 continue;
             }
             registry.register(pet.definition());
-            cache.put(pet.definition().id(), pet.assets());
+            cache.put(pet.definition().id(), PetSourceKind.LOCAL, pet.assets());
+            PetOrigins.remember(pet.definition(), pet.folder(), pet.directory());
         }
     }
 
-    private static LoadedPet load(ResourceManager resourceManager, ResourceLocation file, Resource resource) throws IOException {
+    private static LoadedPet load(ResourceManager resourceManager, ResourceLocation file) throws IOException {
         ResourceLocation folder = folderOf(file);
-        ResourceLocation id = idOf(folder);
-
-        JsonObject json = readJson(resource);
-        PetDefinition definition = PetDefinitionParser.parse(id, folder, json, PetSourceKind.RESOURCE_PACK);
-
-        GeoModel geometry = GeoParser.parse(readJson(require(resourceManager, definition.model(), "model")));
-        BakedGeoModel model = GeoBaker.bake(geometry);
-
-        Map<String, Animation> animations = new LinkedHashMap<>();
-        if (definition.animationFile() != null) {
-            animations.putAll(AnimationParser.parse(
-                    readJson(require(resourceManager, definition.animationFile(), "animation file"))));
-        }
-
-        require(resourceManager, definition.texture(), "texture");
-
-        return new LoadedPet(definition, new PetAssets(model, Map.copyOf(animations)));
-    }
-
-    private static Resource require(ResourceManager resourceManager, ResourceLocation location, String what) throws IOException {
-        return resourceManager.getResource(location)
-                .orElseThrow(() -> new IOException("missing " + what + ": " + location));
-    }
-
-    private static JsonObject readJson(Resource resource) throws IOException {
-        try (BufferedReader reader = resource.openAsReader()) {
-            return JsonParser.parseReader(reader).getAsJsonObject();
-        }
+        PetBundle.Loaded loaded = PetBundle.read(
+                idOf(folder), folder, PetSourceKind.RESOURCE_PACK, PetBundle.inPacks(resourceManager));
+        return new LoadedPet(loaded.definition(), loaded.assets(), folder);
     }
 
     private static ResourceLocation folderOf(ResourceLocation file) {
         String path = file.getPath();
         return ResourceLocation.fromNamespaceAndPath(
                 file.getNamespace(),
-                path.substring(0, path.length() - DEFINITION_FILE.length() - 1));
+                path.substring(0, path.length() - PetContent.DEFINITION.length() - 1));
     }
 
     private static ResourceLocation idOf(ResourceLocation folder) {

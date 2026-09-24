@@ -15,7 +15,7 @@ public final class LovePaw {
     public static final Logger LOGGER = LoggerFactory.getLogger("LovePaw");
 
     /** Bumped when the network format changes in a way older clients cannot read. */
-    public static final int PROTOCOL_VERSION = 1;
+    public static final int PROTOCOL_VERSION = 2;
 
     private static Path configDir;
 

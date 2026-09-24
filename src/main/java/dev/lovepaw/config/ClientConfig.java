@@ -12,6 +12,7 @@ public final class ClientConfig {
     private static Path file;
     private static ResourceLocation selectedPet;
     private static boolean showOtherPlayersPets = true;
+    private static boolean downloadPlayerPets = true;
     private static PetOverrides overrides = PetOverrides.NONE;
 
     private static int revision;
@@ -27,6 +28,8 @@ public final class ClientConfig {
         selectedPet = id.isBlank() ? null : ResourceLocation.tryParse(id);
         showOtherPlayersPets = !json.has("show_other_players_pets")
                 || json.get("show_other_players_pets").getAsBoolean();
+        downloadPlayerPets = !json.has("download_player_pets")
+                || json.get("download_player_pets").getAsBoolean();
         overrides = PetOverrides.fromJson(
                 json.has("overrides") && json.get("overrides").isJsonObject()
                         ? json.getAsJsonObject("overrides")
@@ -41,6 +44,7 @@ public final class ClientConfig {
         JsonObject json = new JsonObject();
         json.addProperty("selected_pet", selectedPet == null ? "" : selectedPet.toString());
         json.addProperty("show_other_players_pets", showOtherPlayersPets);
+        json.addProperty("download_player_pets", downloadPlayerPets);
         json.add("overrides", overrides.toJson());
         JsonConfigs.write(file, json);
     }
@@ -61,6 +65,24 @@ public final class ClientConfig {
 
     public static void setShowOtherPlayersPets(boolean show) {
         showOtherPlayersPets = show;
+        revision++;
+        save();
+    }
+
+    /**
+     * Whether pets this player does not have are fetched through the server
+     * when somebody nearby is wearing one.
+     *
+     * <p>Turning it off means other players keep whatever pets are installed
+     * here and nothing else: no files arrive, and the ones that would have are
+     * simply not shown.
+     */
+    public static boolean downloadPlayerPets() {
+        return downloadPlayerPets;
+    }
+
+    public static void setDownloadPlayerPets(boolean download) {
+        downloadPlayerPets = download;
         revision++;
         save();
     }

@@ -3,6 +3,40 @@
 Notable changes, newest first. Versions are `<mod>+mc<minecraft>`; the Minecraft
 half is not part of the mod's own numbering.
 
+## 0.5.0 — 2026-09-24
+
+### Added
+
+- **A pet you do not have arrives by itself.** Anyone can make a pet and put it in their
+  own folder, and until now everybody else had to install the same files by hand or see
+  nothing. A client that meets a pet it does not have now asks the server for it, the
+  server asks whoever is wearing it, and the files come across. Nothing is fetched in
+  advance and nothing is fetched twice: a pet moves the first time somebody actually needs
+  it, is kept on the server for whoever asks next, and is kept on disk here so meeting it
+  again costs nothing at all.
+- No resource reload happens for any of it. A downloaded pet is handed straight to the
+  texture manager, so nobody is thrown out of what they were doing to load somebody's cat,
+  and a later reload does not take it away again.
+- Downloaded pets stay out of the picker. They belong to whoever made them and are only
+  ever drawn on that player.
+- `share_player_pets` in the server config turns the whole thing off for a server that
+  would rather not carry content it cannot look at; `download_player_pets` in the client
+  config turns it off for a player who would rather not receive any.
+
+### Changed
+
+- **A pet is now identified by its files, not by its name.** Two players can each have a
+  `local:cat` of their own making, and the server only ever said the name — so one of them
+  was quietly shown the other's cat, with nothing to suggest anything was wrong. Every pet
+  now carries a hash of the files it is made of, and a pet whose files do not match is not
+  drawn as one we have.
+- Reading a pet goes through one door whatever it came from, so a pet that arrives from
+  another player is read exactly as strictly as one the player installed themselves. A
+  file left lying in a pet's folder is neither read nor part of the pet.
+- The network protocol changed with it. A client and a server on different versions of
+  LovePaw now leave each other alone instead of misreading each other, which means other
+  players' pets stay hidden until both are updated.
+
 ## 0.4.1 — 2026-09-24
 
 ### Changed

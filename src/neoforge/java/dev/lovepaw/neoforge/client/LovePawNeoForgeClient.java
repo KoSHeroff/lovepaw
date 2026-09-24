@@ -2,6 +2,7 @@ package dev.lovepaw.neoforge.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.lovepaw.LovePaw;
+import dev.lovepaw.client.PetDownloads;
 import dev.lovepaw.client.PetManager;
 import dev.lovepaw.client.PetResourceLoader;
 import dev.lovepaw.client.screen.PetSelectScreen;
@@ -41,6 +42,7 @@ public final class LovePawNeoForgeClient {
         public static void onClientSetup(FMLClientSetupEvent event) {
             ClientConfig.load(FMLPaths.CONFIGDIR.get());
             PetManager.get().setSender(PacketDistributor::sendToServer);
+            PetDownloads.get().setGameDirectory(FMLPaths.GAMEDIR.get());
         }
 
         @SubscribeEvent

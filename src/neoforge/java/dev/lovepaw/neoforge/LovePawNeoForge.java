@@ -2,6 +2,8 @@ package dev.lovepaw.neoforge;
 
 import dev.lovepaw.LovePaw;
 import dev.lovepaw.net.LovePawPayloads;
+import dev.lovepaw.net.PetContentRelay;
+import dev.lovepaw.net.ServerCourier;
 import dev.lovepaw.net.ServerPetState;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.IEventBus;
@@ -16,11 +18,16 @@ import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
+import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
 import java.util.List;
 
 @Mod(LovePaw.MOD_ID)
 public final class LovePawNeoForge {
+    private static final PetContentRelay RELAY = new PetContentRelay(new ServerCourier(
+            ServerLifecycleHooks::getCurrentServer,
+            PacketDistributor::sendToPlayer));
+
     public LovePawNeoForge(IEventBus modEventBus, ModContainer container) {
         LovePaw.init(FMLPaths.CONFIGDIR.get());
 
@@ -33,7 +40,7 @@ public final class LovePawNeoForge {
     }
 
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar("1").optional();
+        PayloadRegistrar registrar = event.registrar(String.valueOf(LovePaw.PROTOCOL_VERSION)).optional();
 
         registrar.playToServer(
                 LovePawPayloads.SelectPayload.TYPE,
@@ -41,11 +48,29 @@ public final class LovePawNeoForge {
                 (payload, context) -> {
                     if (context.player() instanceof ServerPlayer player) {
                         context.enqueueWork(() -> {
-                            LovePawPayloads.Entry entry = ServerPetState.select(player.getUUID(), payload.petId());
+                            LovePawPayloads.Entry entry = ServerPetState.select(player.getUUID(), payload.petId(), payload.contentHash());
                             if (entry != null) {
                                 PacketDistributor.sendToAllPlayers(new LovePawPayloads.StatePayload(List.of(entry)));
                             }
                         });
+                    }
+                });
+
+        registrar.playToServer(
+                LovePawPayloads.PetRequestPayload.TYPE,
+                LovePawPayloads.PetRequestPayload.CODEC,
+                (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        context.enqueueWork(() -> RELAY.onRequest(player.getUUID(), payload.contentHash()));
+                    }
+                });
+
+        registrar.playToServer(
+                LovePawPayloads.PetUploadPayload.TYPE,
+                LovePawPayloads.PetUploadPayload.CODEC,
+                (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        context.enqueueWork(() -> RELAY.onChunk(player.getUUID(), payload.chunk()));
                     }
                 });
 
@@ -62,6 +87,21 @@ public final class LovePawNeoForge {
                     LovePawPayloads.StatePayload.CODEC,
                     (payload, context) -> {
                     });
+            registrar.playToClient(
+                    LovePawPayloads.PetNeededPayload.TYPE,
+                    LovePawPayloads.PetNeededPayload.CODEC,
+                    (payload, context) -> {
+                    });
+            registrar.playToClient(
+                    LovePawPayloads.PetDeliveryPayload.TYPE,
+                    LovePawPayloads.PetDeliveryPayload.CODEC,
+                    (payload, context) -> {
+                    });
+            registrar.playToClient(
+                    LovePawPayloads.PetMissingPayload.TYPE,
+                    LovePawPayloads.PetMissingPayload.CODEC,
+                    (payload, context) -> {
+                    });
         }
     }
 
@@ -71,6 +111,7 @@ public final class LovePawNeoForge {
 
     private static void onServerStopped(ServerStoppedEvent event) {
         ServerPetState.clear();
+        RELAY.clear();
     }
 
     private static void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
@@ -88,6 +129,7 @@ public final class LovePawNeoForge {
         if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
+        RELAY.onLeave(player.getUUID());
         LovePawPayloads.Entry entry = ServerPetState.forget(player.getUUID());
         if (entry != null) {
             PacketDistributor.sendToAllPlayers(new LovePawPayloads.StatePayload(List.of(entry)));

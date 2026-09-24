@@ -4,7 +4,9 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import net.minecraft.resources.ResourceLocation;
 
+import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -23,10 +25,40 @@ public final class PetDefinitionParser {
     }
 
     /**
+     * A file a {@code pet.json} points at: the name as it was written, and
+     * where that name lands once resolved against the pet's folder.
+     */
+    public record FileRef(String field, String value, ResourceLocation location) {
+    }
+
+    /**
+     * Every file the pet is made of, in a fixed order.
+     *
+     * <p>Loading and hashing both go by this list, so a pet weighs exactly what
+     * it draws with: anything else left lying in its folder is neither read nor
+     * part of what identifies it.
+     */
+    public static List<FileRef> filesOf(ResourceLocation id, ResourceLocation folder, JsonObject json) {
+        List<FileRef> files = new ArrayList<>(3);
+        files.add(refOf(folder, json, id, "model"));
+        files.add(refOf(folder, json, id, "texture"));
+        if (string(json, "animation_file", null) != null) {
+            files.add(refOf(folder, json, id, "animation_file"));
+        }
+        return files;
+    }
+
+    private static FileRef refOf(ResourceLocation folder, JsonObject json, ResourceLocation id, String field) {
+        String value = string(json, field, null);
+        return new FileRef(field, value, resolve(folder, value, id, field));
+    }
+
+    /**
      * @param id     the pet's namespaced id, derived from where the file was found
      * @param folder the folder holding the file, used to resolve relative names
      */
-    public static PetDefinition parse(ResourceLocation id, ResourceLocation folder, JsonObject json, PetSourceKind source) {
+    public static PetDefinition parse(ResourceLocation id, ResourceLocation folder, JsonObject json,
+                                      PetSourceKind source, String contentHash) {
         int formatVersion = json.has("format_version") ? json.get("format_version").getAsInt() : FORMAT_VERSION;
         if (formatVersion > FORMAT_VERSION) {
             throw new PetFormatException("pet " + id + " needs format_version " + formatVersion
@@ -60,7 +92,8 @@ public final class PetDefinitionParser {
                 Map.copyOf(animations),
                 readRender(json.getAsJsonObject("render")),
                 readBehaviour(json.getAsJsonObject("behaviour")),
-                source);
+                source,
+                contentHash);
     }
 
     private static PetRenderSettings readRender(JsonObject json) {

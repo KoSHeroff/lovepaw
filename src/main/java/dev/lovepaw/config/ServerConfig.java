@@ -18,6 +18,7 @@ public final class ServerConfig {
     private static final String FILE_NAME = "lovepaw-server.json";
 
     private static boolean shareWithOthers = true;
+    private static boolean sharePlayerPets = true;
     private static Set<String> allowed = Set.of();
     private static Set<String> denied = Set.of();
 
@@ -29,6 +30,7 @@ public final class ServerConfig {
         JsonObject json = JsonConfigs.read(file);
 
         shareWithOthers = !json.has("share_with_others") || json.get("share_with_others").getAsBoolean();
+        sharePlayerPets = !json.has("share_player_pets") || json.get("share_player_pets").getAsBoolean();
         allowed = readSet(json, "allowed_pets");
         denied = readSet(json, "denied_pets");
 
@@ -36,13 +38,14 @@ public final class ServerConfig {
             save(file);
         }
 
-        LovePaw.LOGGER.info("LovePaw server config: sharing={} allowed={} denied={}",
-                shareWithOthers, allowed.size(), denied.size());
+        LovePaw.LOGGER.info("LovePaw server config: sharing={} player pets={} allowed={} denied={}",
+                shareWithOthers, sharePlayerPets, allowed.size(), denied.size());
     }
 
     private static void save(Path file) {
         JsonObject json = new JsonObject();
         json.addProperty("share_with_others", shareWithOthers);
+        json.addProperty("share_player_pets", sharePlayerPets);
         json.add("allowed_pets", toArray(allowed));
         json.add("denied_pets", toArray(denied));
         JsonConfigs.write(file, json);
@@ -71,6 +74,18 @@ public final class ServerConfig {
     /** Whether the server relays pet choices to other players at all. */
     public static boolean shareWithOthers() {
         return shareWithOthers;
+    }
+
+    /**
+     * Whether the server passes the files of a player-made pet on to the
+     * players who need them to see it.
+     *
+     * <p>Turning this off leaves everyone with the pets they installed
+     * themselves, which is what a server wants if it would rather not carry
+     * content it cannot look at.
+     */
+    public static boolean sharePlayerPets() {
+        return sharePlayerPets;
     }
 
     /** An empty allow list means "anything that is not denied". */
