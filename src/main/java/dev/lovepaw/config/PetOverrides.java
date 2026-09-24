@@ -59,6 +59,7 @@ public record PetOverrides(
                 sitChance != null ? sitChance : base.sitChance(),
                 base.curiosity(),
                 base.interestRadius(),
+                base.playfulness(),
                 predictionSeconds != null ? predictionSeconds : base.predictionSeconds());
     }
 

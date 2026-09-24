@@ -173,7 +173,8 @@ Distances are blocks, speeds are blocks per tick (multiply by 20 for blocks per 
 | `wander_speed` | `0.10` | Speed while wandering; slower than `walk_speed` reads as ambling. |
 | `sit_chance` | `0.35` | Odds of sitting down instead of wandering, once it has nothing to do. |
 | `curiosity` | `0.4` | Odds of going to look at something nearby instead of wandering to a spot of its own. `0` for a pet that never investigates anything. |
-| `interest_radius` | `10.0` | How far around its patch it notices things worth a look. Clamped to 0–24. |
+| `interest_radius` | `10.0` | How far around its patch it notices things worth a look, other pets included. Clamped to 0–24. |
+| `playfulness` | `0.5` | Odds of starting a game of chase with another player's pet that comes near. `0` for a pet that keeps itself to itself. |
 
 ### What the pet does with all this
 
@@ -205,6 +206,14 @@ climb a tower and it will come up after you rather than wait by the ground.
 - **beyond `teleport_distance`**, or if it gets properly wedged on geometry, it gives up
   and appears next to you. The same rescue covers a pet that ends up inside a block, from
   a teleport into a tight spot or from a block placed on top of it
+
+When another player's pet comes within `interest_radius`, the two of them may start a game
+of chase: one runs, the other goes after it, and they swap over every few seconds until the
+game runs out. Neither pet tells the other anything — both work out from the pair of owners
+and the world clock whether there is a game on and who is chasing, so both players watch
+the same chase. The shyer pet sets the odds, so `playfulness: 0` keeps a pet out of games
+altogether rather than leaving it to be chased. A pet being chased stays inside its own
+patch: it runs round the far side of it rather than back into whoever is after it.
 
 Things worth a look are the ones a player would notice: beds, signs, banners, paintings and
 item frames, candles and campfires, jukeboxes and note blocks, chests and barrels, anvils,

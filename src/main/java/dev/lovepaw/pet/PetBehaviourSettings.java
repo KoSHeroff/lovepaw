@@ -31,6 +31,8 @@ package dev.lovepaw.pet;
  * @param curiosity        odds of going to look at something nearby rather than
  *                         wandering to a spot it picked itself, 0 to 1
  * @param interestRadius   how far it notices things worth a look
+ * @param playfulness      odds of starting a game of chase with another pet
+ *                         that comes near, 0 to 1
  * @param predictionSeconds how far ahead of a moving owner it aims
  */
 public record PetBehaviourSettings(
@@ -56,6 +58,7 @@ public record PetBehaviourSettings(
         float sitChance,
         float curiosity,
         float interestRadius,
+        float playfulness,
         float predictionSeconds
 ) {
     public static final PetBehaviourSettings DEFAULT = new PetBehaviourSettings(
@@ -81,5 +84,6 @@ public record PetBehaviourSettings(
             0.35f,
             0.4f,
             10f,
+            0.5f,
             1.2f);
 }

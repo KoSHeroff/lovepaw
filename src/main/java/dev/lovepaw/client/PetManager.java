@@ -2,6 +2,7 @@ package dev.lovepaw.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.lovepaw.LovePaw;
+import dev.lovepaw.behaviour.PetActor;
 import dev.lovepaw.client.render.PetRenderer;
 import dev.lovepaw.config.ClientConfig;
 import dev.lovepaw.net.LovePawPayloads;
@@ -145,6 +146,25 @@ public final class PetManager {
         }
 
         instances.keySet().retainAll(alive);
+    }
+
+    /**
+     * Other people's pets close to this one, and awake. A sleeping pet is not
+     * moving, and a pet that ran rings round a statue would look silly.
+     */
+    public List<PetActor.Nearby> petsNear(UUID excluding, Vec3 centre, double radius) {
+        List<PetActor.Nearby> found = new ArrayList<>();
+        for (PetInstance pet : instances.values()) {
+            if (pet.ownerId().equals(excluding) || pet.outOfSight()) {
+                continue;
+            }
+            if (pet.position().distanceToSqr(centre) > radius * radius) {
+                continue;
+            }
+            found.add(new PetActor.Nearby(pet.ownerId(), pet.position(),
+                    pet.settings().playfulness()));
+        }
+        return found;
     }
 
     private ResourceLocation wantedPet(Minecraft minecraft, UUID owner) {

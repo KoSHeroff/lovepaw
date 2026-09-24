@@ -21,6 +21,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -460,6 +461,11 @@ public final class PetInstance implements PetActor {
             decisions = RandomSource.create(seedFor(ownerId, slot));
         }
         return decisions;
+    }
+
+    @Override
+    public List<PetActor.Nearby> petsNearby(double radius) {
+        return PetManager.get().petsNear(ownerId, position, radius);
     }
 
     @Override

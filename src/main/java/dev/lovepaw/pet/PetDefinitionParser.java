@@ -108,6 +108,7 @@ public final class PetDefinitionParser {
                 clamp(number(json, "sit_chance", base.sitChance()), 0f, 1f),
                 clamp(number(json, "curiosity", base.curiosity()), 0f, 1f),
                 clamp(number(json, "interest_radius", base.interestRadius()), 0f, 24f),
+                clamp(number(json, "playfulness", base.playfulness()), 0f, 1f),
                 clamp(number(json, "prediction_seconds", base.predictionSeconds()), 0f, 3f));
     }
 
