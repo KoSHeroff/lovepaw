@@ -1,0 +1,23 @@
+{
+  "lovepaw.screen.title": "Pets",
+  "lovepaw.screen.none": "No pet",
+  "lovepaw.screen.empty": "No pets installed yet",
+  "lovepaw.screen.author": "by %s",
+  "lovepaw.screen.others_shown": "Other players' pets: shown",
+  "lovepaw.screen.others_hidden": "Other players' pets: hidden",
+  "lovepaw.screen.settings": "Settings",
+
+  "lovepaw.settings.title": "Pet settings",
+  "lovepaw.settings.hint": "Applies to your pet, over whatever its pack asks for",
+  "lovepaw.settings.anchor_radius": "Area you can leave before it moves: %s",
+  "lovepaw.settings.prediction": "Aims ahead of you by: %s s",
+  "lovepaw.settings.wander_radius": "How far it wanders: %s",
+  "lovepaw.settings.sit_chance": "Sits down: %s of the time",
+  "lovepaw.settings.scale": "Size: %sx",
+  "lovepaw.settings.wander_on": "Wandering: on",
+  "lovepaw.settings.wander_off": "Wandering: off",
+  "lovepaw.settings.reset": "Back to pet defaults",
+
+  "key.categories.lovepaw": "LovePaw",
+  "key.lovepaw.open_menu": "Open pet menu"
+}

@@ -1,0 +1,114 @@
+plugins {
+    id 'fabric-loom'          version '1.16.+' apply false
+    id 'net.neoforged.moddev' version '2.0.+'  apply false
+    id 'maven-publish'
+}
+
+// Version-specific properties come from versions/<active>/gradle.properties,
+// loaded automatically by Stonecutter.
+version = "${mod_version}+mc${minecraft_version}"
+group   = maven_group
+
+def sc_loader = stonecutter.current.version.contains("neoforge") ? "neoforge" : "fabric"
+
+// Available to the preprocessor as `//? if fabric {` in shared sources.
+stonecutter.constants {
+    put "fabric", (sc_loader == "fabric")
+}
+
+base {
+    // Keep the loader in the file name so the Fabric and NeoForge jars for the
+    // same MC version never overwrite each other in flat release assets.
+    archivesName = "${archives_base_name}-${sc_loader}"
+}
+
+if (sc_loader == "fabric") {
+    apply plugin: 'fabric-loom'
+} else {
+    apply plugin: 'net.neoforged.moddev'
+}
+
+// Shared code lives in src/main/java; anything that touches a loader API lives
+// in src/<loader>/java and only that loader compiles it. Both loaders are built
+// against Mojang mappings, so shared code needs no name swaps.
+sourceSets.main.java.srcDir rootProject.file("src/${sc_loader}/java")
+
+repositories {
+    mavenCentral()
+    if (sc_loader != "fabric") {
+        maven { url = 'https://maven.neoforged.net/releases' }
+    }
+}
+
+if (sc_loader == "fabric") {
+    dependencies {
+        minecraft "com.mojang:minecraft:${minecraft_version}"
+        mappings  loom.officialMojangMappings()
+        modImplementation "net.fabricmc:fabric-loader:${loader_version}"
+        modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
+    }
+} else {
+    neoForge {
+        version = project.neoforge_version
+        mods {
+            lovepaw {
+                sourceSet sourceSets.main
+            }
+        }
+        runs {
+            client { client() }
+            server { server() }
+        }
+    }
+}
+
+dependencies {
+    testImplementation platform("org.junit:junit-bom:5.10.2")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+    if (sc_loader != "fabric") {
+        // moddev keeps Minecraft off the test classpath, unlike loom. The tests
+        // touch plain classes (Gson, Vec3, RandomSource) that need no game boot,
+        // so handing them the same classpath main compiles against is enough.
+        testImplementation files({ sourceSets.main.compileClasspath })
+    }
+}
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+    }
+}
+
+processResources {
+    inputs.property 'version',         project.version
+    inputs.property 'minecraft_range', project.minecraft_range
+    if (sc_loader == "fabric") {
+        // Never ship the other loader's metadata: loaders and mod hosts
+        // mis-detect a jar that carries both.
+        exclude 'META-INF/neoforge.mods.toml'
+        filesMatching('fabric.mod.json') {
+            expand version: project.version, minecraft_range: project.minecraft_range
+        }
+    } else {
+        exclude 'fabric.mod.json'
+        filesMatching('META-INF/neoforge.mods.toml') {
+            expand version: project.version, minecraft_range: project.minecraft_range
+        }
+    }
+}
+
+def javaVersion = (project.findProperty('java_version') ?: '21').toString().toInteger()
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.encoding = 'UTF-8'
+    it.options.release  = javaVersion
+}
+
+java {
+    withSourcesJar()
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(javaVersion)
+    }
+}

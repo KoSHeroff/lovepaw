@@ -1,0 +1,43 @@
+{
+  "format_version": 1,
+  "name": "Cat",
+  "author": "KoSHer",
+  "version": "1.0.0",
+
+  "model": "cat.geo.json",
+  "texture": "cat.png",
+  "animation_file": "cat.animation.json",
+
+  "animations": {
+    "idle": "animation.lovepaw_cat.idle",
+    "walk": "animation.lovepaw_cat.walk",
+    "run": "animation.lovepaw_cat.run",
+    "sit": "animation.lovepaw_cat.sit",
+    "fall": "animation.lovepaw_cat.fall"
+  },
+
+  "render": {
+    "scale": 1.0,
+    "shadow_radius": 0.3
+  },
+
+  "behaviour": {
+    "type": "follow",
+    "anchor_radius": 8.0,
+    "prediction_seconds": 1.2,
+    "stop_distance": 1.4,
+    "run_distance": 5.0,
+    "teleport_distance": 20.0,
+    "walk_speed": 0.16,
+    "run_speed": 0.3,
+    "width": 0.5,
+    "height": 0.7,
+    "step_height": 1.0,
+    "can_swim": true,
+
+    "wander": true,
+    "wander_radius": 4.5,
+    "wander_speed": 0.1,
+    "sit_chance": 0.35
+  }
+}

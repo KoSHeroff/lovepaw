@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "lovepaw",
+  "version": "${version}",
+  "name": "LovePaw",
+  "description": "Cosmetic pets that walk with you. Pets are data, not entities: they render on the client and work on any server.",
+  "authors": [
+    "KoSHer"
+  ],
+  "license": "MIT",
+  "icon": "icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "dev.lovepaw.fabric.LovePawFabric"
+    ],
+    "client": [
+      "dev.lovepaw.fabric.client.LovePawFabricClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "minecraft": "${minecraft_range}",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}

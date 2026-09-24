@@ -1,0 +1,27 @@
+modLoader = "javafml"
+loaderVersion = "[4,)"
+license = "MIT"
+
+[[mods]]
+modId = "lovepaw"
+version = "${version}"
+displayName = "LovePaw"
+authors = "KoSHer"
+logoFile = "icon.png"
+description = '''
+Cosmetic pets that walk with you. Pets are data, not entities: they render on the client and work on any server.
+'''
+
+[[dependencies.lovepaw]]
+modId = "neoforge"
+type = "required"
+versionRange = "[21.1,)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.lovepaw]]
+modId = "minecraft"
+type = "required"
+versionRange = "${minecraft_range}"
+ordering = "NONE"
+side = "BOTH"
