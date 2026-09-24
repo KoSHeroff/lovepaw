@@ -15,7 +15,32 @@ The pet's id is `<namespace>:<pet_name>`, taken from the path. Two packs can eac
 replaces it, which is how you re-skin a pet you did not make.
 
 After adding the folder, press **F3 + T** in game to reload resources; the pet appears in
-the picker (**P**).
+the picker (**G**).
+
+## Without a resource pack
+
+While you are making a pet, building a pack around it every time is a waste. Drop the
+folder straight into the game directory instead:
+
+```
+.minecraft/lovepaw/pets/<pet_name>/
+    pet.json
+    cat.geo.json
+    cat.png
+    cat.animation.json
+```
+
+The mod creates `lovepaw/pets/` on first run, so it is already there waiting. Export from
+Blockbench into the folder, press **F3 + T**, and the pet is in the picker — no
+`pack.mcmeta`, no namespace, nothing to enable.
+
+The id of a pet loaded this way is `local:<pet_name>`, so it can never collide with a pet
+from a pack, and the folder name has to work as one: lowercase letters, digits, `_`, `-`
+and `.`. Files are named plainly, sitting next to `pet.json`; the `namespace:path/file`
+form a pack may use does not work here, because these files are not in a pack.
+
+Other players will not see a pet you loaded this way — they do not have the files. That is
+the same as with a resource pack only you have installed.
 
 ## In Blockbench
 
@@ -246,6 +271,7 @@ Everything is logged with the file path. Check `logs/latest.log` for `LovePaw`.
 | Symptom | Usual cause |
 |---|---|
 | Pet missing from the picker | `pet.json` failed to parse, or the folder is not under `lovepaw/pets/`. The log names the file and the reason. |
+| A pet in `lovepaw/pets/` is missing | The folder name is not a valid id (uppercase or spaces), one of its files is not there, or `pet.json` names a file as `namespace:path`. The log says which. |
 | Purple and black model | The `texture` path does not point at your png. |
 | Model inside out or mirrored | Exported as something other than "Bedrock Model". |
 | Nothing animates | The names in `animations` do not match the names inside the animation file. |

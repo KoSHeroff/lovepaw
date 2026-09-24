@@ -88,19 +88,24 @@ means everything that is not in `denied_pets` is allowed.
 
 ## Adding a pet
 
-Drop a folder into a resource pack:
+Drop a folder into `lovepaw/pets/` in your game directory — the mod makes it on first run:
 
 ```
-assets/<your_namespace>/lovepaw/pets/<pet_name>/
+.minecraft/lovepaw/pets/<pet_name>/
     pet.json
     model.geo.json
     texture.png
     animations.animation.json
 ```
 
-The folder name becomes the pet's id (`your_namespace:pet_name`). Reload resources
-(F3 + T) and it is in the picker. The full format reference, including every behaviour
-knob and how to export from Blockbench, is in [docs/pet-format.md](docs/pet-format.md).
+Reload resources (F3 + T) and it is in the picker as `local:<pet_name>`. No pack to build,
+nothing to enable: export from Blockbench into the folder and press the key.
+
+The same folder shipped inside a resource pack, under
+`assets/<your_namespace>/lovepaw/pets/<pet_name>/`, is how you hand a pet to somebody else
+— then its id is `your_namespace:pet_name`. The full format reference, including every
+behaviour knob and how to export from Blockbench, is in
+[docs/pet-format.md](docs/pet-format.md).
 
 ## Building
 
@@ -139,14 +144,13 @@ against.
 
 ## Status
 
-Working: loading pets from packs, Bedrock models and animations with Molang, the follow
+Working: loading pets from packs and from the player's own folder, Bedrock models and animations with Molang, the follow
 behaviour with wandering, sitting, collision, step-up, hopping over what it cannot step
 onto, and swimming, the picker, client-side rendering with shadows, and server relay on
 both loaders.
 
-Not there yet: a pet catalogue with downloads, loading pets from a local folder outside
-resource packs, sounds, particle and sound keyframe effects, per-face UV rotation, and
-the published Java API.
+Not there yet: a pet catalogue with downloads, sounds, particle and sound keyframe
+effects, per-face UV rotation, and the published Java API.
 
 A dev client boots clean with the built-in pets loaded and the server handshake working,
 and parsers, coordinate conversion and behaviour are covered by unit tests. What no test
