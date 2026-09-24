@@ -1,0 +1,87 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "animation.lovepaw_catbee.idle": {
+      "loop": true,
+      "animation_length": 2.4,
+      "bones": {
+        "body": {
+          "position": ["0", "math.sin(query.anim_time * 150) * 1.1", "0"],
+          "rotation": ["math.sin(query.anim_time * 75) * 2", "0", "0"]
+        },
+        "head": {
+          "rotation": {
+            "0.0": [0, 0, 0],
+            "0.8": [4, -9, 0],
+            "1.6": [-3, 8, 2],
+            "2.4": [0, 0, 0]
+          }
+        },
+        "wing_l": {
+          "rotation": ["0", "0", "math.sin(query.anim_time * 1500) * 34"]
+        },
+        "wing_r": {
+          "rotation": ["0", "0", "math.sin(query.anim_time * 1500) * -34"]
+        },
+        "abdomen": {
+          "rotation": ["math.sin(query.anim_time * 150 - 40) * 3", "0", "0"]
+        },
+        "legs": {
+          "rotation": ["math.sin(query.anim_time * 150 - 90) * 4", "0", "0"]
+        }
+      }
+    },
+
+    "animation.lovepaw_catbee.walk": {
+      "loop": true,
+      "animation_length": 1.2,
+      "bones": {
+        "body": {
+          "position": ["0", "math.sin(query.anim_time * 300) * 0.8", "0"],
+          "rotation": ["7", "0", "0"]
+        },
+        "head": {
+          "rotation": ["-5", "0", "0"]
+        },
+        "wing_l": {
+          "rotation": ["0", "0", "math.sin(query.anim_time * 2200) * 40"]
+        },
+        "wing_r": {
+          "rotation": ["0", "0", "math.sin(query.anim_time * 2200) * -40"]
+        },
+        "abdomen": {
+          "rotation": ["-4 + math.sin(query.anim_time * 300 - 50) * 3", "0", "0"]
+        },
+        "legs": {
+          "rotation": ["-14", "0", "0"]
+        }
+      }
+    },
+
+    "animation.lovepaw_catbee.run": {
+      "loop": true,
+      "animation_length": 0.8,
+      "bones": {
+        "body": {
+          "position": ["0", "math.sin(query.anim_time * 420) * 0.6", "0"],
+          "rotation": ["14", "0", "0"]
+        },
+        "head": {
+          "rotation": ["-10", "0", "0"]
+        },
+        "wing_l": {
+          "rotation": ["0", "0", "math.sin(query.anim_time * 3000) * 46"]
+        },
+        "wing_r": {
+          "rotation": ["0", "0", "math.sin(query.anim_time * 3000) * -46"]
+        },
+        "abdomen": {
+          "rotation": ["-8 + math.sin(query.anim_time * 420 - 50) * 4", "0", "0"]
+        },
+        "legs": {
+          "rotation": ["-26", "0", "0"]
+        }
+      }
+    }
+  }
+}
