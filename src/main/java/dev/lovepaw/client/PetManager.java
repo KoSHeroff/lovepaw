@@ -84,6 +84,13 @@ public final class PetManager {
         this.sender = sender;
     }
 
+    /** Sends to the server, or nowhere at all if this one does not listen. */
+    public void send(CustomPacketPayload payload) {
+        if (serverHasMod && sender != null) {
+            sender.sendToServer(payload);
+        }
+    }
+
     /** True once the server has said it speaks LovePaw. */
     public boolean serverHasMod() {
         return serverHasMod;
@@ -125,6 +132,7 @@ public final class PetManager {
         remoteSelections.clear();
         instances.clear();
         missing.clear();
+        PetDownloads.get().onDisconnect();
     }
 
     public ResourceLocation localSelection() {
@@ -221,22 +229,30 @@ public final class PetManager {
     private PetInstance create(UUID owner, Selection selection, boolean isLocal) {
         ResourceLocation petId = selection.id();
         PetDefinition definition = PetRegistry.get().get(petId).orElse(null);
-        if (definition == null || !selection.matches(definition)) {
-            // Having the same id is not having the same pet. Showing ours in
-            // its place would put an animal on that player's shoulder that
-            // nobody chose, so until the files themselves arrive, nothing is
-            // shown at all.
-            if (!selection.contentHash().isEmpty() && missing.add(selection.contentHash())) {
-                LovePaw.LOGGER.info("Pet {} ({}) is not installed here", petId, selection.contentHash());
+        if (definition != null && selection.matches(definition)) {
+            PetAssets assets = PetAssetCache.get().get(petId);
+            if (assets == null) {
+                LovePaw.LOGGER.warn("Pet {} has no loaded model", petId);
+                return null;
             }
-            return null;
+            return new PetInstance(owner, definition, assets, isLocal);
         }
-        PetAssets assets = PetAssetCache.get().get(petId);
-        if (assets == null) {
-            LovePaw.LOGGER.warn("Pet {} has no loaded model", petId);
-            return null;
+
+        // Having the same id is not having the same pet, so nothing installed
+        // here is shown in its place: that would put an animal on that player's
+        // shoulder which nobody chose. The files themselves are asked for
+        // instead, and until they arrive there is simply no pet.
+        PetDownloads.Installed downloaded = PetDownloads.get().find(selection.contentHash());
+        if (downloaded != null) {
+            return new PetInstance(owner, downloaded.definition(), downloaded.assets(), isLocal);
         }
-        return new PetInstance(owner, definition, assets, isLocal);
+        if (!selection.contentHash().isEmpty()) {
+            if (missing.add(selection.contentHash())) {
+                LovePaw.LOGGER.info("Pet {} is not installed here; asking for it", petId);
+            }
+            PetDownloads.get().want(selection.contentHash());
+        }
+        return null;
     }
 
     /** Once per frame, after entities have been drawn. */

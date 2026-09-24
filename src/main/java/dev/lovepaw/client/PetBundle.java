@@ -12,8 +12,11 @@ import dev.lovepaw.pet.PetDefinition;
 import dev.lovepaw.pet.PetDefinitionParser;
 import dev.lovepaw.pet.PetSourceKind;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.resources.Resource;
+import net.minecraft.server.packs.resources.ResourceManager;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -35,11 +38,6 @@ import java.util.Map;
  * with and nothing else.
  */
 public final class PetBundle {
-    /** What a pet arriving from elsewhere is allowed to weigh. */
-    public static final int MAX_FILES = 8;
-    public static final int MAX_FILE_BYTES = 2 * 1024 * 1024;
-    public static final int MAX_TOTAL_BYTES = 4 * 1024 * 1024;
-
     /** Where the files come from. */
     public interface Source {
         /**
@@ -61,6 +59,33 @@ public final class PetBundle {
 
     public static Loaded read(ResourceLocation id, ResourceLocation folder,
                               PetSourceKind kind, Source source) throws IOException {
+        PetContent content = contentOf(id, folder, source);
+        if (kind == PetSourceKind.REMOTE && !content.isShareable()) {
+            throw new IOException("a pet from another player may not weigh this much");
+        }
+
+        JsonObject json = json(content, PetContent.DEFINITION);
+        PetDefinition definition = PetDefinitionParser.parse(id, folder, json, kind, content.hash());
+
+        BakedGeoModel model = GeoBaker.bake(GeoParser.parse(json(content, nameOf(definition.model()))));
+
+        Map<String, Animation> animations = Map.of();
+        if (definition.animationFile() != null) {
+            animations = Map.copyOf(AnimationParser.parse(json(content, nameOf(definition.animationFile()))));
+        }
+
+        byte[] texture = content.file(nameOf(definition.texture()));
+        return new Loaded(definition, new PetAssets(model, animations), texture, content);
+    }
+
+    /**
+     * The files alone, without building anything out of them. This is how a
+     * pet is read again when another player asks for it: the hash it comes back
+     * with is checked against the one that was promised, so a pet edited on
+     * disk since it was loaded is simply not handed over.
+     */
+    public static PetContent contentOf(ResourceLocation id, ResourceLocation folder,
+                                       Source source) throws IOException {
         Map<String, byte[]> files = new LinkedHashMap<>();
         byte[] definitionBytes = source.read(PetContent.DEFINITION, child(folder, PetContent.DEFINITION));
         collect(files, PetContent.DEFINITION, definitionBytes);
@@ -70,23 +95,7 @@ public final class PetBundle {
         for (PetDefinitionParser.FileRef file : PetDefinitionParser.filesOf(id, folder, json)) {
             collect(files, nameOf(file.location()), source.read(file.value(), file.location()));
         }
-
-        PetContent content = PetContent.of(files);
-        if (kind == PetSourceKind.REMOTE) {
-            checkSize(content);
-        }
-
-        PetDefinition definition = PetDefinitionParser.parse(id, folder, json, kind, content.hash());
-
-        BakedGeoModel model = GeoBaker.bake(GeoParser.parse(json(content, definition.model())));
-
-        Map<String, Animation> animations = Map.of();
-        if (definition.animationFile() != null) {
-            animations = Map.copyOf(AnimationParser.parse(json(content, definition.animationFile())));
-        }
-
-        byte[] texture = content.file(nameOf(definition.texture()));
-        return new Loaded(definition, new PetAssets(model, animations), texture, content);
+        return PetContent.of(files);
     }
 
     /** Files read straight out of a folder on disk, and nowhere else. */
@@ -97,6 +106,20 @@ public final class PetBundle {
                 throw new IOException("missing file: " + value);
             }
             return Files.readAllBytes(file);
+        };
+    }
+
+    /**
+     * Files read through the resource manager, which is what lets a pack pet
+     * point at another pack's model or texture the way any other asset can.
+     */
+    public static Source inPacks(ResourceManager resourceManager) {
+        return (value, resolved) -> {
+            Resource resource = resourceManager.getResource(resolved)
+                    .orElseThrow(() -> new IOException("missing file: " + resolved));
+            try (InputStream in = resource.open()) {
+                return in.readAllBytes();
+            }
         };
     }
 
@@ -145,22 +168,8 @@ public final class PetBundle {
         }
     }
 
-    private static void checkSize(PetContent content) throws IOException {
-        if (content.files().size() > MAX_FILES) {
-            throw new IOException("a pet may hold " + MAX_FILES + " files, not " + content.files().size());
-        }
-        if (content.size() > MAX_TOTAL_BYTES) {
-            throw new IOException("a pet may weigh " + MAX_TOTAL_BYTES + " bytes, not " + content.size());
-        }
-        for (Map.Entry<String, byte[]> file : content.files().entrySet()) {
-            if (file.getValue().length > MAX_FILE_BYTES) {
-                throw new IOException(file.getKey() + " is over " + MAX_FILE_BYTES + " bytes");
-            }
-        }
-    }
-
-    private static JsonObject json(PetContent content, ResourceLocation location) {
+    private static JsonObject json(PetContent content, String name) {
         return JsonParser.parseString(
-                new String(content.file(nameOf(location)), StandardCharsets.UTF_8)).getAsJsonObject();
+                new String(content.file(name), StandardCharsets.UTF_8)).getAsJsonObject();
     }
 }

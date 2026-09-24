@@ -65,6 +65,24 @@ public final class ServerPetState {
         return contentHash;
     }
 
+    /**
+     * Players wearing a particular pet, which is who can be asked for its
+     * files. Most of the time that is whoever the requester saw wearing it,
+     * but anyone else with the same pet will do just as well.
+     */
+    public static List<UUID> wearing(String contentHash) {
+        if (contentHash == null || contentHash.isEmpty()) {
+            return List.of();
+        }
+        List<UUID> owners = new ArrayList<>();
+        SELECTIONS.forEach((owner, selection) -> {
+            if (contentHash.equals(selection.contentHash())) {
+                owners.add(owner);
+            }
+        });
+        return owners;
+    }
+
     /** Everything a joining player needs to render the pets already around them. */
     public static List<LovePawPayloads.Entry> snapshot() {
         if (!ServerConfig.shareWithOthers()) {

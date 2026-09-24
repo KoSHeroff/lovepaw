@@ -2,6 +2,7 @@ package dev.lovepaw.fabric.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.lovepaw.LovePaw;
+import dev.lovepaw.client.PetDownloads;
 import dev.lovepaw.client.PetManager;
 import dev.lovepaw.client.screen.PetSelectScreen;
 import dev.lovepaw.config.ClientConfig;
@@ -30,6 +31,7 @@ public final class LovePawFabricClient implements ClientModInitializer {
                 new FabricPetResourceLoader(FabricLoader.getInstance().getGameDir()));
 
         PetManager.get().setSender(ClientPlayNetworking::send);
+        PetDownloads.get().setGameDirectory(FabricLoader.getInstance().getGameDir());
 
         ClientPlayNetworking.registerGlobalReceiver(LovePawPayloads.HelloPayload.TYPE, (payload, context) ->
                 context.client().execute(() -> {
@@ -39,6 +41,15 @@ public final class LovePawFabricClient implements ClientModInitializer {
 
         ClientPlayNetworking.registerGlobalReceiver(LovePawPayloads.StatePayload.TYPE, (payload, context) ->
                 context.client().execute(() -> PetManager.get().onStateEntries(payload.entries())));
+
+        ClientPlayNetworking.registerGlobalReceiver(LovePawPayloads.PetNeededPayload.TYPE, (payload, context) ->
+                context.client().execute(() -> PetDownloads.get().onRequested(payload.contentHash())));
+
+        ClientPlayNetworking.registerGlobalReceiver(LovePawPayloads.PetDeliveryPayload.TYPE, (payload, context) ->
+                context.client().execute(() -> PetDownloads.get().onChunk(payload.chunk())));
+
+        ClientPlayNetworking.registerGlobalReceiver(LovePawPayloads.PetMissingPayload.TYPE, (payload, context) ->
+                context.client().execute(() -> PetDownloads.get().onMissing(payload.contentHash())));
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> PetManager.get().onDisconnect());
 

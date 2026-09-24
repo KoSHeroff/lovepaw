@@ -32,8 +32,13 @@ public final class PetLocalLoader {
     /** Namespace for folder pets, so they can never collide with a pack's. */
     public static final String NAMESPACE = "local";
 
-    /** A pet found on disk, with its texture not yet uploaded. */
-    public record LocalPet(PetDefinition definition, PetAssets assets, byte[] texture) {
+    /**
+     * A pet found on disk, with its texture not yet uploaded and the folder it
+     * came from, which is where it is read from again if another player needs
+     * it.
+     */
+    public record LocalPet(PetDefinition definition, PetAssets assets, byte[] texture,
+                           ResourceLocation folder, Path directory) {
     }
 
     private PetLocalLoader() {
@@ -97,6 +102,6 @@ public final class PetLocalLoader {
 
         PetBundle.Loaded loaded =
                 PetBundle.read(id, assetFolder, PetSourceKind.LOCAL, PetBundle.filesIn(directory));
-        return new LocalPet(loaded.definition(), loaded.assets(), loaded.texture());
+        return new LocalPet(loaded.definition(), loaded.assets(), loaded.texture(), assetFolder, directory);
     }
 }

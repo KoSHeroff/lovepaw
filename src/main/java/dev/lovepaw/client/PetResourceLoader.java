@@ -51,7 +51,7 @@ public class PetResourceLoader extends SimplePreparableReloadListener<PetResourc
     }
 
     /** A pet and its baked assets, prepared off-thread before being applied. */
-    public record LoadedPet(PetDefinition definition, PetAssets assets) {
+    public record LoadedPet(PetDefinition definition, PetAssets assets, ResourceLocation folder) {
     }
 
     /** Everything one reload found, from both sources. */
@@ -89,10 +89,13 @@ public class PetResourceLoader extends SimplePreparableReloadListener<PetResourc
         PetAssetCache cache = PetAssetCache.get();
         cache.clearSource(PetSourceKind.RESOURCE_PACK);
         cache.clearSource(PetSourceKind.LOCAL);
+        PetOrigins.forgetSource(PetSourceKind.RESOURCE_PACK);
+        PetOrigins.forgetSource(PetSourceKind.LOCAL);
 
         for (LoadedPet pet : loaded.fromPacks()) {
             registry.register(pet.definition());
             cache.put(pet.definition().id(), PetSourceKind.RESOURCE_PACK, pet.assets());
+            PetOrigins.remember(pet.definition(), pet.folder(), null);
         }
 
         applyLocal(loaded.fromFolder(), registry, cache);
@@ -124,28 +127,15 @@ public class PetResourceLoader extends SimplePreparableReloadListener<PetResourc
             }
             registry.register(pet.definition());
             cache.put(pet.definition().id(), PetSourceKind.LOCAL, pet.assets());
+            PetOrigins.remember(pet.definition(), pet.folder(), pet.directory());
         }
     }
 
     private static LoadedPet load(ResourceManager resourceManager, ResourceLocation file) throws IOException {
         ResourceLocation folder = folderOf(file);
         PetBundle.Loaded loaded = PetBundle.read(
-                idOf(folder), folder, PetSourceKind.RESOURCE_PACK, packFiles(resourceManager));
-        return new LoadedPet(loaded.definition(), loaded.assets());
-    }
-
-    /**
-     * Files read through the resource manager, which is what lets a pack pet
-     * point at another pack's model or texture the way any other asset can.
-     */
-    private static PetBundle.Source packFiles(ResourceManager resourceManager) {
-        return (value, resolved) -> {
-            Resource resource = resourceManager.getResource(resolved)
-                    .orElseThrow(() -> new IOException("missing file: " + resolved));
-            try (InputStream in = resource.open()) {
-                return in.readAllBytes();
-            }
-        };
+                idOf(folder), folder, PetSourceKind.RESOURCE_PACK, PetBundle.inPacks(resourceManager));
+        return new LoadedPet(loaded.definition(), loaded.assets(), folder);
     }
 
     private static ResourceLocation folderOf(ResourceLocation file) {
