@@ -4,8 +4,6 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.junit.jupiter.api.Test;
 
-import java.util.HashSet;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -17,45 +15,9 @@ class PetPhysicsTest {
     private static final float HEIGHT = 0.6f;
     private static final double EPSILON = 1.0E-6;
 
-    private static final class Blocks implements PetPhysics.Space {
-        private final Set<Long> solid = new HashSet<>();
-
-        Blocks solid(int x, int y, int z) {
-            solid.add(key(x, y, z));
-            return this;
-        }
-
-        Blocks floor() {
-            for (int x = -8; x <= 8; x++) {
-                for (int z = -8; z <= 8; z++) {
-                    solid(x, -1, z);
-                }
-            }
-            return this;
-        }
-
-        @Override
-        public boolean free(AABB box) {
-            for (int x = (int) Math.floor(box.minX); x <= (int) Math.floor(box.maxX - EPSILON); x++) {
-                for (int y = (int) Math.floor(box.minY); y <= (int) Math.floor(box.maxY - EPSILON); y++) {
-                    for (int z = (int) Math.floor(box.minZ); z <= (int) Math.floor(box.maxZ - EPSILON); z++) {
-                        if (solid.contains(key(x, y, z))) {
-                            return false;
-                        }
-                    }
-                }
-            }
-            return true;
-        }
-
-        private static long key(int x, int y, int z) {
-            return (((long) x & 0xFFFFF) << 40) | (((long) y & 0xFFFFF) << 20) | ((long) z & 0xFFFFF);
-        }
-    }
-
     @Test
     void walksUpAStepWithinItsStepHeight() {
-        Blocks world = new Blocks().floor().solid(1, 0, 0);
+        TestBlocks world = new TestBlocks().floor().solid(1, 0, 0);
         AABB box = PetPhysics.boxAt(new Vec3(0.6, 0, 0.5), WIDTH, HEIGHT);
 
         Vec3 moved = PetPhysics.move(world, box, new Vec3(0.3, 0, 0), 1.0);
@@ -66,7 +28,7 @@ class PetPhysicsTest {
 
     @Test
     void stopsAtAStepTooTallToWalkUp() {
-        Blocks world = new Blocks().floor().solid(1, 0, 0);
+        TestBlocks world = new TestBlocks().floor().solid(1, 0, 0);
         AABB box = PetPhysics.boxAt(new Vec3(0.6, 0, 0.5), WIDTH, HEIGHT);
 
         Vec3 moved = PetPhysics.move(world, box, new Vec3(0.3, 0, 0), 0.6);
@@ -76,7 +38,7 @@ class PetPhysicsTest {
 
     @Test
     void landsFlushOnTheGroundRatherThanAHairAboveIt() {
-        Blocks world = new Blocks().floor();
+        TestBlocks world = new TestBlocks().floor();
         AABB box = PetPhysics.boxAt(new Vec3(0.5, 0.3, 0.5), WIDTH, HEIGHT);
 
         Vec3 moved = PetPhysics.move(world, box, new Vec3(0, -0.5, 0), 1.0);
@@ -89,7 +51,7 @@ class PetPhysicsTest {
 
     @Test
     void stopsFlushAgainstAWallToo() {
-        Blocks world = new Blocks().floor().solid(1, 0, 0);
+        TestBlocks world = new TestBlocks().floor().solid(1, 0, 0);
         AABB box = PetPhysics.boxAt(new Vec3(0.6, 0, 0.5), WIDTH, HEIGHT);
 
         Vec3 moved = PetPhysics.move(world, box, new Vec3(0.4, 0, 0), 0);
@@ -100,7 +62,7 @@ class PetPhysicsTest {
 
     @Test
     void knowsWhenItIsInsideSomethingRatherThanTouchingIt() {
-        Blocks world = new Blocks().floor();
+        TestBlocks world = new TestBlocks().floor();
         assertFalse(PetPhysics.wedged(world, PetPhysics.boxAt(new Vec3(0.5, 0, 0.5), WIDTH, HEIGHT)),
                 "standing on the floor is not being stuck in it");
 
@@ -111,7 +73,7 @@ class PetPhysicsTest {
 
     @Test
     void teleportsToTheOwnersOwnLevelRatherThanOntoTheWallBesideThem() {
-        Blocks world = new Blocks().floor().solid(0, 0, -2).solid(0, 1, -2);
+        TestBlocks world = new TestBlocks().floor().solid(0, 0, -2).solid(0, 1, -2);
 
         Vec3 spot = PetPhysics.findTeleportSpot(world, new Vec3(0.5, 0, 0.5), WIDTH, HEIGHT, 180f);
 
@@ -121,7 +83,7 @@ class PetPhysicsTest {
 
     @Test
     void findsNowhereToStandOverThinAir() {
-        Blocks world = new Blocks();
+        TestBlocks world = new TestBlocks();
 
         assertEquals(null, PetPhysics.findStandingSpot(world, new Vec3(0, 0, 0), WIDTH, HEIGHT),
                 "nothing to stand on means no spot, which is what keeps wandering off ledges");

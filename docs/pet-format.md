@@ -189,6 +189,11 @@ you last settled, and `wander_radius` is its size.
   stop, the anchor settles where you stopped and the pet goes back to its own business
 - **walking into something** taller than `step_height` — a full block, a fence post — it
   hops over it, if its `jump_power` is not zero
+- **meeting something it cannot get over** — a wall, the corner of a house — it works out a
+  route round, block by block, and follows that until the place it was heading for moves.
+  It only bothers once walking straight has plainly failed, so the search costs nothing in
+  the open. A hovering pet skips this and flies straight: it is usually above whatever is
+  in the way
 - **beyond `teleport_distance`**, or if it gets properly wedged on geometry, it gives up
   and appears next to you. The same rescue covers a pet that ends up inside a block, from
   a teleport into a tight spot or from a block placed on top of it

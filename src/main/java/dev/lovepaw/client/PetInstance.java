@@ -43,12 +43,14 @@ public final class PetInstance implements PetActor {
     private static final double MOVING_THRESHOLD = 0.01;
     private static final int STUCK_TICKS = 20;
     private static final int JUMP_AFTER_TICKS = 2;
+    private static final int PATH_AFTER_TICKS = 4;
 
     private final UUID ownerId;
     private final PetDefinition definition;
     private final PetAssets assets;
     private final PetBehaviour behaviour;
     private final AnimationPlayer animation;
+    private final PetNavigation navigation = new PetNavigation();
     private final MolangContext molang = new MolangContext();
 
     private final boolean local;
@@ -333,6 +335,7 @@ public final class PetInstance implements PetActor {
         lastTickSpeed = 0;
         stuckTicks = 0;
         sitting = false;
+        navigation.forget();
     }
 
     /**
@@ -423,8 +426,9 @@ public final class PetInstance implements PetActor {
 
     @Override
     public void walkTowards(Vec3 target, float speed) {
-        double dx = target.x - position.x;
-        double dz = target.z - position.z;
+        Vec3 heading = steer(target);
+        double dx = heading.x - position.x;
+        double dz = heading.z - position.z;
         double horizontal = Math.sqrt(dx * dx + dz * dz);
         if (horizontal < 1.0E-4) {
             desiredMotion = Vec3.ZERO;
@@ -433,6 +437,24 @@ public final class PetInstance implements PetActor {
 
         double step = Math.min(speed, horizontal);
         desiredMotion = new Vec3(dx / horizontal * step, 0, dz / horizontal * step);
+    }
+
+    /**
+     * Where to actually put the next step. A pet flies or walks straight at
+     * what it wants until that plainly is not working, and only then is a route
+     * worth the search.
+     */
+    private Vec3 steer(Vec3 target) {
+        PetBehaviourSettings config = effectiveBehaviour;
+        if (config.hover()) {
+            return target;
+        }
+        return navigation.steer(
+                PetPhysics.Space.of(owner.level()),
+                position,
+                target,
+                new PetPathfinder.Shape(config.width(), config.height(), config.stepHeight()),
+                stuckTicks >= PATH_AFTER_TICKS);
     }
 
     @Override

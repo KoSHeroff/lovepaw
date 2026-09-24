@@ -146,7 +146,7 @@ against.
 
 Working: loading pets from packs and from the player's own folder, Bedrock models and animations with Molang, the follow
 behaviour with wandering, sitting, collision, step-up, hopping over what it cannot step
-onto, and swimming, the picker, client-side rendering with shadows, and server relay on
+onto, routing round what it cannot hop over, and swimming, the picker, client-side rendering with shadows, and server relay on
 both loaders.
 
 Not there yet: a pet catalogue with downloads, sounds, particle and sound keyframe
