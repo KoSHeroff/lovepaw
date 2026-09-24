@@ -489,6 +489,11 @@ public final class PetInstance implements PetActor {
     }
 
     @Override
+    public Vec3 findSomethingInteresting(Vec3 near, double radius) {
+        return PetInterest.find(owner.level(), near, radius, owner.level().random);
+    }
+
+    @Override
     public Vec3 findStandingSpot(Vec3 near) {
         PetBehaviourSettings config = effectiveBehaviour;
         return PetPhysics.findStandingSpot(PetPhysics.Space.of(owner.level()),

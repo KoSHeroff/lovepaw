@@ -183,6 +183,66 @@ class FollowBehaviourTest {
                         + cannotSit.sitAttempts + " times");
     }
 
+    @Test
+    void goesOverToLookAtSomethingItNoticed() {
+        TestActor actor = new TestActor();
+        actor.position = new Vec3(0.5, 0, 0);
+        actor.interesting = new Vec3(7, 0, 0);
+        FollowBehaviour behaviour = new FollowBehaviour();
+
+        boolean stoodAndLooked = false;
+        for (int tick = 0; tick < 600 && !stoodAndLooked; tick++) {
+            behaviour.tick(actor);
+            if (actor.motion.length() > 1.0E-6) {
+                actor.position = actor.position.add(actor.motion);
+            }
+            stoodAndLooked = actor.lookTarget != null
+                    && actor.lookTarget.equals(actor.interesting)
+                    && actor.motion.length() < 1.0E-6;
+        }
+
+        assertTrue(stoodAndLooked, "it should walk over and look at the thing");
+        assertTrue(actor.position.distanceTo(actor.interesting) < 3,
+                "and be standing in front of it; was " + actor.position);
+    }
+
+    @Test
+    void doesNotKeepGoingBackToTheSameThing() {
+        TestActor actor = new TestActor();
+        actor.position = new Vec3(0.5, 0, 0);
+        actor.interesting = new Vec3(7, 0, 0);
+        FollowBehaviour behaviour = new FollowBehaviour();
+
+        int visits = 0;
+        boolean away = true;
+        for (int tick = 0; tick < 3000; tick++) {
+            behaviour.tick(actor);
+            if (actor.motion.length() > 1.0E-6) {
+                actor.position = actor.position.add(actor.motion);
+            }
+            boolean atIt = actor.position.distanceTo(actor.interesting) < 2.0;
+            if (atIt && away) {
+                visits++;
+            }
+            away = !atIt;
+        }
+
+        assertEquals(1, visits, "a thing is interesting once, not for ever");
+    }
+
+    @Test
+    void aPetThatStaysPutIsNotCurious() {
+        TestActor actor = new TestActor();
+        actor.position = new Vec3(0.5, 0, 0);
+        actor.interesting = new Vec3(7, 0, 0);
+        actor.settings = withWander(false);
+
+        simulate(new FollowBehaviour(), actor, 600);
+
+        assertTrue(actor.position.distanceTo(new Vec3(0.5, 0, 0)) < 1.5,
+                "wandering off is wandering, whatever the reason; was " + actor.position);
+    }
+
     private static PetBehaviourSettings withWander(boolean wander) {
         PetBehaviourSettings base = PetBehaviourSettings.DEFAULT;
         return new PetBehaviourSettings(
@@ -190,7 +250,8 @@ class FollowBehaviourTest {
                 base.walkSpeed(), base.runSpeed(), base.runDistance(), base.gravity(), base.stepHeight(),
                 base.jumpPower(),
                 base.width(), base.height(), base.canSwim(), base.hover(), base.hoverHeight(),
-                wander, base.wanderRadius(), base.wanderSpeed(), base.sitChance(), base.predictionSeconds());
+                wander, base.wanderRadius(), base.wanderSpeed(), base.sitChance(),
+                base.curiosity(), base.interestRadius(), base.predictionSeconds());
     }
 
     private static final class TestActor implements PetActor {
@@ -208,6 +269,8 @@ class FollowBehaviourTest {
         boolean sitting;
         boolean canSit = true;
         int sitAttempts;
+        Vec3 interesting;
+        int looksAtInteresting;
         boolean stuck;
 
         @Override
@@ -311,6 +374,11 @@ class FollowBehaviourTest {
         @Override
         public boolean isSitting() {
             return sitting;
+        }
+
+        @Override
+        public Vec3 findSomethingInteresting(Vec3 near, double radius) {
+            return interesting;
         }
 
         @Override

@@ -27,6 +27,9 @@ package dev.lovepaw.pet;
  * @param wanderRadius     size of the patch it pothers about in
  * @param wanderSpeed      speed while wandering, usually slower than walking
  * @param sitChance        odds of sitting down instead of wandering, 0 to 1
+ * @param curiosity        odds of going to look at something nearby rather than
+ *                         wandering to a spot it picked itself, 0 to 1
+ * @param interestRadius   how far it notices things worth a look
  * @param predictionSeconds how far ahead of a moving owner it aims
  */
 public record PetBehaviourSettings(
@@ -49,6 +52,8 @@ public record PetBehaviourSettings(
         float wanderRadius,
         float wanderSpeed,
         float sitChance,
+        float curiosity,
+        float interestRadius,
         float predictionSeconds
 ) {
     public static final PetBehaviourSettings DEFAULT = new PetBehaviourSettings(
@@ -71,5 +76,7 @@ public record PetBehaviourSettings(
             4.5f,
             0.10f,
             0.35f,
+            0.4f,
+            10f,
             1.2f);
 }

@@ -56,6 +56,8 @@ public record PetOverrides(
                 wanderRadius != null ? wanderRadius : base.wanderRadius(),
                 base.wanderSpeed(),
                 sitChance != null ? sitChance : base.sitChance(),
+                base.curiosity(),
+                base.interestRadius(),
                 predictionSeconds != null ? predictionSeconds : base.predictionSeconds());
     }
 

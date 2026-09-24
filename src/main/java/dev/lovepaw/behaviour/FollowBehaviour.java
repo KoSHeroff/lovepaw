@@ -3,6 +3,9 @@ package dev.lovepaw.behaviour;
 import dev.lovepaw.pet.PetBehaviourSettings;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
+
 /**
  * The default behaviour: a pet lives in a patch of ground, not on a leash.
  *
@@ -31,6 +34,13 @@ public final class FollowBehaviour implements PetBehaviour {
     private static final int TARGET_ATTEMPTS = 8;
     private static final double MAX_LEAD = 6;
     private static final double RETARGET_DISTANCE = 2;
+    private static final float STUDY_MIN_SECONDS = 2.5f;
+    private static final float STUDY_MAX_SECONDS = 7f;
+    private static final float REACH_IT_SECONDS = 9f;
+    private static final double CLOSE_ENOUGH_TO_LOOK = 2.0;
+    private static final int THINGS_REMEMBERED = 5;
+    private static final double SAME_THING = 2.5;
+    private static final float SIT_AND_STARE = 0.4f;
 
     private enum Mode {
         /** Moving the patch to where the owner is going. */
@@ -38,7 +48,11 @@ public final class FollowBehaviour implements PetBehaviour {
         /** Ambling to a spot inside the patch. */
         WANDER,
         /** Standing around in the patch. */
-        REST
+        REST,
+        /** On its way to something it noticed. */
+        INSPECT,
+        /** Stood in front of that something, looking at it. */
+        STUDY
     }
 
     private Mode mode = Mode.REST;
@@ -49,6 +63,8 @@ public final class FollowBehaviour implements PetBehaviour {
     private float modeSeconds;
     private float glanceSeconds;
     private Vec3 glanceTarget;
+    private Vec3 interest;
+    private final Deque<Vec3> alreadySeen = new ArrayDeque<>();
 
     @Override
     public void tick(PetActor actor) {
@@ -73,6 +89,8 @@ public final class FollowBehaviour implements PetBehaviour {
         switch (mode) {
             case RELOCATE -> relocate(actor, settings);
             case WANDER -> wander(actor, settings);
+            case INSPECT -> inspect(actor, settings);
+            case STUDY -> study(actor);
             case REST -> rest(actor, settings);
         }
     }
@@ -151,6 +169,11 @@ public final class FollowBehaviour implements PetBehaviour {
             return;
         }
 
+        if (settings.wander() && actor.random().nextFloat() < settings.curiosity()
+                && goAndLook(actor, settings)) {
+            return;
+        }
+
         if (settings.wander() && actor.random().nextFloat() > settings.sitChance()) {
             Vec3 target = pickSpotAround(actor, anchor, settings.wanderRadius());
             if (target != null && horizontalDistance(actor.position(), target) > ARRIVED) {
@@ -167,6 +190,76 @@ public final class FollowBehaviour implements PetBehaviour {
         restFor(actor, actor.isSitting()
                 ? randomBetween(actor, SIT_MIN_SECONDS, SIT_MAX_SECONDS)
                 : randomBetween(actor, REST_MIN_SECONDS, REST_MAX_SECONDS));
+    }
+
+    /**
+     * Picks something nearby worth a look and sets off towards it. A pet that
+     * only ever ambles to a random patch of ground is a screensaver; noticing
+     * the bed, the sign, somebody's chicken is what reads as alive.
+     */
+    private boolean goAndLook(PetActor actor, PetBehaviourSettings settings) {
+        Vec3 thing = actor.findSomethingInteresting(anchor, settings.interestRadius());
+        if (thing == null || seenLately(thing)) {
+            return false;
+        }
+        Vec3 spot = actor.findStandingSpot(thing);
+        if (spot == null || horizontalDistance(actor.position(), thing) < CLOSE_ENOUGH_TO_LOOK) {
+            // Right next to it already, or nowhere to stand: remember it either
+            // way, or the pet keeps picking the same unreachable thing.
+            remember(thing);
+            return false;
+        }
+        interest = thing;
+        mode = Mode.INSPECT;
+        modeSeconds = REACH_IT_SECONDS;
+        return true;
+    }
+
+    private void inspect(PetActor actor, PetBehaviourSettings settings) {
+        modeSeconds -= actor.deltaSeconds();
+        double distance = horizontalDistance(actor.position(), interest);
+
+        if (distance <= CLOSE_ENOUGH_TO_LOOK) {
+            remember(interest);
+            mode = Mode.STUDY;
+            modeSeconds = randomBetween(actor, STUDY_MIN_SECONDS, STUDY_MAX_SECONDS);
+            actor.stand();
+            if (actor.onGround() && !actor.inWater() && actor.random().nextFloat() < SIT_AND_STARE) {
+                actor.setSitting(true);
+            }
+            return;
+        }
+
+        if (modeSeconds <= 0 || actor.isStuck()) {
+            remember(interest);
+            restFor(actor, randomBetween(actor, REST_MIN_SECONDS, REST_MAX_SECONDS));
+            return;
+        }
+
+        actor.walkTowards(interest, settings.wanderSpeed());
+        actor.faceMotion();
+    }
+
+    private void study(PetActor actor) {
+        actor.stand();
+        actor.face(interest);
+        modeSeconds -= actor.deltaSeconds();
+        if (modeSeconds <= 0) {
+            actor.setSitting(false);
+            restFor(actor, randomBetween(actor, REST_MIN_SECONDS, REST_MAX_SECONDS));
+        }
+    }
+
+    /** Things just looked at, so the pet does not shuttle between the same two. */
+    private void remember(Vec3 thing) {
+        alreadySeen.addLast(thing);
+        while (alreadySeen.size() > THINGS_REMEMBERED) {
+            alreadySeen.removeFirst();
+        }
+    }
+
+    private boolean seenLately(Vec3 thing) {
+        return alreadySeen.stream().anyMatch(old -> old.distanceToSqr(thing) < SAME_THING * SAME_THING);
     }
 
     private void wander(PetActor actor, PetBehaviourSettings settings) {

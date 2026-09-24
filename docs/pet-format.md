@@ -171,6 +171,8 @@ Distances are blocks, speeds are blocks per tick (multiply by 20 for blocks per 
 | `wander_radius` | `4.5` | How far from the owner it will wander. Clamped to 1.5–16. |
 | `wander_speed` | `0.10` | Speed while wandering; slower than `walk_speed` reads as ambling. |
 | `sit_chance` | `0.35` | Odds of sitting down instead of wandering, once it has nothing to do. |
+| `curiosity` | `0.4` | Odds of going to look at something nearby instead of wandering to a spot of its own. `0` for a pet that never investigates anything. |
+| `interest_radius` | `10.0` | How far around its patch it notices things worth a look. Clamped to 0–24. |
 
 ### What the pet does with all this
 
@@ -180,8 +182,8 @@ you last settled, and `wander_radius` is its size.
 - **while you stay within `anchor_radius` of that anchor** the pet ignores you and gets on
   with its own life: **resting** (standing, glancing your way now and then and off
   elsewhere the rest of the time — it holds each look for a few seconds rather than
-  tracking you), **wandering** to a spot in the patch it picked itself, or sitting down for
-  a while with odds of `sit_chance`
+  tracking you), **wandering** to a spot in the patch it picked itself, **going to look at
+  something** it noticed, or sitting down for a while with odds of `sit_chance`
 - **when you leave that radius** it moves house instead of giving chase: it works out
   where you are heading from how you are moving, anchors the patch `prediction_seconds`
   ahead of you, and runs to a spot in it — so it arrives alongside you rather than
@@ -198,7 +200,16 @@ you last settled, and `wander_radius` is its size.
   and appears next to you. The same rescue covers a pet that ends up inside a block, from
   a teleport into a tight spot or from a block placed on top of it
 
-Set `wander: false` for a pet that should stand still in its patch, and
+Things worth a look are the ones a player would notice: beds, signs, banners, paintings and
+item frames, candles and campfires, jukeboxes and note blocks, chests and barrels, anvils,
+bookshelves, amethyst, decorated pots — and anything alive that is not you. Stone and dirt
+are everywhere and say nothing, so they are not on the list. The pet ambles over, stands in
+front of the thing for a few seconds — sometimes sitting down to look at it properly — and
+then gets on with something else. It remembers the last handful of things it has studied,
+so it does not shuttle between the same two all afternoon.
+
+Set `curiosity: 0` for a pet that ignores the world, `wander: false` for a pet that should
+stand still in its patch, and
 `prediction_seconds: 0` for one that heads straight at where you are rather than where
 you are going. A small `anchor_radius` (say 3) gives the glued-to-your-heels feel.
 

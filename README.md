@@ -42,7 +42,8 @@ point where a future pet catalogue would offer to download it.
 
 A pet lives in a patch of ground rather than on a leash. While you stay near where you
 settled it ignores you and gets on with its own life — wandering to spots it picks itself,
-looking around, sitting down. Walk far enough away and it moves house: it works out where
+going over to look at things it notices (a bed, a sign, a painting, somebody else's
+chicken), sitting down, looking around. Walk far enough away and it moves house: it works out where
 you are heading and runs to a spot *there*, arriving alongside you rather than trailing
 behind. How big its patch is, how far ahead it aims and how often it sits are all per-pet
 settings — see [docs/pet-format.md](docs/pet-format.md).
@@ -145,8 +146,8 @@ against.
 ## Status
 
 Working: loading pets from packs and from the player's own folder, Bedrock models and animations with Molang, the follow
-behaviour with wandering, sitting, collision, step-up, hopping over what it cannot step
-onto, routing round what it cannot hop over, and swimming, the picker, client-side rendering with shadows, and server relay on
+behaviour with wandering, curiosity about what is nearby, sitting, collision, step-up,
+hopping over what it cannot step onto, routing round what it cannot hop over, and swimming, the picker, client-side rendering with shadows, and server relay on
 both loaders.
 
 Not there yet: a pet catalogue with downloads, sounds, particle and sound keyframe

@@ -105,6 +105,8 @@ public final class PetDefinitionParser {
                 clamp(number(json, "wander_radius", base.wanderRadius()), 1.5f, 16f),
                 clamp(number(json, "wander_speed", base.wanderSpeed()), 0.01f, 1f),
                 clamp(number(json, "sit_chance", base.sitChance()), 0f, 1f),
+                clamp(number(json, "curiosity", base.curiosity()), 0f, 1f),
+                clamp(number(json, "interest_radius", base.interestRadius()), 0f, 24f),
                 clamp(number(json, "prediction_seconds", base.predictionSeconds()), 0f, 3f));
     }
 
