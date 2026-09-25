@@ -189,13 +189,23 @@ rises when it runs into something, and ducks under a low ceiling. It only pays a
 where you are vertically when you get well above it — climb a tower and it will come up
 after you rather than wait by the ground.
 
-When another player's pet comes near, the two of them may start a game of chase: one runs,
-the other goes after it, and they swap over every few seconds until the game runs out.
-Neither pet tells the other anything — both work out from the pair of owners and the world
-clock whether there is a game on and who is chasing, so both players watch the same chase.
-The shyer of the two settles it, which is what keeps a cat and a flyer from disagreeing
-about whether there is a game at all. A pet being chased stays inside its own patch: it
-runs round the far side of it rather than back into whoever is after it.
+When other players' pets come near, they may get into a game of chase — and it is a game
+for however many of them are there, not a pair. Three pets come out two against one; a few
+seconds later every side turns over and it is one against two, with the one going for
+whichever of them is closer and changing its mind as they move. A pet with two after it
+runs the way that puts distance between it and both at once, rather than away from one and
+into the other.
+
+Nothing is arranged between them. Each pet works out from its own owner and the world clock
+whether it is in the mood and which side it is on, and it can work the same out for every
+pet it can see, because those answers need nothing from that pet but its owner and how
+playful its kind is. So all of them reach the same picture of who is after whom, on every
+client at once, without a packet passing between them. How playful a kind is decides how
+often its pets are up for a game at all — `0` keeps a pet out of them entirely, and
+everybody else can tell.
+
+A pet being chased stays inside its own patch: it runs round the far side rather than back
+into whoever is after it, because the game is not worth losing its owner over.
 
 Things worth a look are the ones a player would notice: beds, signs, banners, paintings and
 item frames, candles and campfires, jukeboxes and note blocks, chests and barrels, anvils,

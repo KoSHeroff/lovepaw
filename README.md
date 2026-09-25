@@ -54,8 +54,8 @@ game's, not a list of sliders to guess at.
 So: it lives in a patch of ground rather than on a leash. While you stay near where you
 settled it ignores you and gets on with its own life — strolling to spots it picks itself,
 going over to look at things it notices (a bed, a sign, a painting, somebody else's
-chicken), playing chase with another player's pet that wanders past, sitting down, looking
-around. Walk far enough away and it moves house: it works out where you are heading and
+chicken), getting into a game of chase with the other players' pets around it — two of them
+after one, then the sides turn over and it is one after two — sitting down, looking around. Walk far enough away and it moves house: it works out where you are heading and
 runs to a spot *there*, arriving alongside you rather than trailing behind. Get properly
 far ahead and it appears beside you, the way a cat does.
 

@@ -301,27 +301,41 @@ class FollowBehaviourTest {
         assertNotEquals(mine, theirs, "two different pets should not move in lockstep");
     }
 
-    /** Two pets standing next to each other, each seeing the other. */
-    private static TestActor[] pair(long seed) {
-        TestActor mine = new TestActor();
-        TestActor theirs = new TestActor();
-        mine.owner = new UUID(1, seed);
-        theirs.owner = new UUID(2, seed);
-        // Each stands by its own owner, a few blocks apart, so heading for the
-        // other pet cannot be confused with heading home.
-        mine.ownerPosition = new Vec3(0, 0, 0);
-        theirs.ownerPosition = new Vec3(5, 0, 0);
-        mine.position = new Vec3(0.5, 0, 0.5);
-        theirs.position = new Vec3(5.5, 0, 0.5);
-        mine.time = theirs.time = 1000;
-        mine.neighbours = List.of(new PetActor.Nearby(theirs.owner, theirs.position,
-                theirs.kind.playfulness()));
-        theirs.neighbours = List.of(new PetActor.Nearby(mine.owner, mine.position,
-                mine.kind.playfulness()));
-        return new TestActor[]{mine, theirs};
+    /** Pets standing a short way apart, each of them seeing all the others. */
+    private static TestActor[] group(long seed, int count) {
+        TestActor[] pets = new TestActor[count];
+        for (int i = 0; i < count; i++) {
+            TestActor pet = new TestActor();
+            pet.owner = new UUID(i + 1, seed);
+            // Each stands by its own owner, a few blocks along from the last,
+            // so heading for another pet cannot be confused with heading home.
+            pet.ownerPosition = new Vec3(i * 4, 0, 0);
+            pet.position = new Vec3(i * 4 + 0.5, 0, 0.5);
+            pet.time = 1000;
+            pets[i] = pet;
+        }
+        look(pets);
+        return pets;
     }
 
-    /** Runs both pets a tick, keeping what each can see of the other up to date. */
+    private static TestActor[] pair(long seed) {
+        return group(seed, 2);
+    }
+
+    /** Brings what each pet can see of the others up to date. */
+    private static void look(TestActor[] pets) {
+        for (TestActor pet : pets) {
+            List<PetActor.Nearby> seen = new ArrayList<>();
+            for (TestActor other : pets) {
+                if (other != pet) {
+                    seen.add(new PetActor.Nearby(other.owner, other.position, other.kind.playfulness()));
+                }
+            }
+            pet.neighbours = seen;
+        }
+    }
+
+    /** Runs every pet a tick, keeping what each can see up to date. */
     private static void playTick(FollowBehaviour[] minds, TestActor[] pets) {
         for (TestActor pet : pets) {
             pet.time++;
@@ -329,12 +343,157 @@ class FollowBehaviourTest {
                 pet.position = pet.position.add(pet.motion);
             }
         }
-        pets[0].neighbours = List.of(new PetActor.Nearby(pets[1].owner, pets[1].position,
-                pets[1].kind.playfulness()));
-        pets[1].neighbours = List.of(new PetActor.Nearby(pets[0].owner, pets[0].position,
-                pets[0].kind.playfulness()));
-        minds[0].tick(pets[0]);
-        minds[1].tick(pets[1]);
+        look(pets);
+        for (int i = 0; i < pets.length; i++) {
+            minds[i].tick(pets[i]);
+        }
+    }
+
+    /** How many of them are after this one right now. */
+    private static int chasersOf(TestActor[] pets, int prey) {
+        int chasing = 0;
+        for (int hunter = 0; hunter < pets.length; hunter++) {
+            if (hunter != prey && heading(pets[hunter], pets[prey])) {
+                chasing++;
+            }
+        }
+        return chasing;
+    }
+
+    private static FollowBehaviour[] mindsFor(TestActor[] pets) {
+        FollowBehaviour[] minds = new FollowBehaviour[pets.length];
+        for (int i = 0; i < minds.length; i++) {
+            minds[i] = new FollowBehaviour();
+        }
+        return minds;
+    }
+
+
+    @Test
+    void threePetsComeOutTwoAgainstOne() {
+        TestActor[] pets = group(11L, 3);
+        FollowBehaviour[] minds = mindsFor(pets);
+
+        boolean gangedUp = false;
+        for (int tick = 0; tick < 4000 && !gangedUp; tick++) {
+            playTick(minds, pets);
+            for (int prey = 0; prey < pets.length; prey++) {
+                gangedUp |= chasersOf(pets, prey) == 2;
+            }
+        }
+
+        assertTrue(gangedUp, "a game between three of them should put two on the same one");
+    }
+
+    @Test
+    void oneOfThemTakesOnBothOfTheOthers() {
+        TestActor[] pets = group(11L, 3);
+        FollowBehaviour[] minds = mindsFor(pets);
+
+        boolean[][] wentAfter = new boolean[pets.length][pets.length];
+        for (int tick = 0; tick < 4000; tick++) {
+            playTick(minds, pets);
+            for (int hunter = 0; hunter < pets.length; hunter++) {
+                for (int prey = 0; prey < pets.length; prey++) {
+                    wentAfter[hunter][prey] |= hunter != prey && heading(pets[hunter], pets[prey]);
+                }
+            }
+        }
+
+        boolean tookOnTwo = false;
+        for (boolean[] hunted : wentAfter) {
+            int howMany = 0;
+            for (boolean one : hunted) {
+                howMany += one ? 1 : 0;
+            }
+            tookOnTwo |= howMany == 2;
+        }
+
+        assertTrue(tookOnTwo, "one pet against two should end up going for each of them in turn");
+    }
+
+    @Test
+    void theOneBeingChasedIsNeverAlsoChasing() {
+        TestActor[] pets = group(11L, 3);
+        FollowBehaviour[] minds = mindsFor(pets);
+
+        for (int tick = 0; tick < 4000; tick++) {
+            playTick(minds, pets);
+            for (int prey = 0; prey < pets.length; prey++) {
+                if (chasersOf(pets, prey) == 0) {
+                    continue;
+                }
+                for (int other = 0; other < pets.length; other++) {
+                    if (other != prey && heading(pets[other], pets[prey])) {
+                        assertFalse(heading(pets[prey], pets[other]),
+                                "two pets cannot be after each other at tick " + tick);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Two against one becomes one against two without anything being arranged:
+     * every pet turns over at the same moment, so the sides simply swap.
+     */
+    @Test
+    void theSidesTurnOverTogetherPartWayThrough() {
+        long era = 1500;
+        for (int i = 1; i <= 4; i++) {
+            UUID owner = new UUID(i, 99L);
+
+            boolean atTheStart = FollowBehaviour.chasesAt(owner, era, era);
+            assertNotEquals(atTheStart, FollowBehaviour.chasesAt(owner, era, era + 60),
+                    "whoever was chasing should be the one running by now");
+            assertEquals(atTheStart, FollowBehaviour.chasesAt(owner, era, era + 120),
+                    "and be back to chasing after that");
+            assertEquals(atTheStart, FollowBehaviour.chasesAt(owner, era, era + 59),
+                    "the side a pet is on holds for the whole stretch, not tick by tick");
+        }
+    }
+
+    /**
+     * Whether a pet plays at all is its own business, worked out from its owner
+     * and the clock — so every other pet, on every other client, works out the
+     * same answer about it without being told.
+     */
+    @Test
+    void whetherAPetIsUpForAGameIsTheSameAnswerEverywhere() {
+        UUID owner = new UUID(3, 99L);
+        long era = 1500;
+
+        assertEquals(FollowBehaviour.inTheMood(owner, 0.7f, era),
+                FollowBehaviour.inTheMood(owner, 0.7f, era));
+        assertFalse(FollowBehaviour.inTheMood(owner, 0f, era),
+                "a pet that never plays is never in the mood");
+        assertTrue(FollowBehaviour.inTheMood(owner, 1f, era),
+                "and one that always does always is");
+    }
+
+    @Test
+    void theOneBeingChasedRunsBetweenThemRatherThanIntoOne() {
+        Vec3 cornered = Vec3.ZERO;
+        List<PetActor.Nearby> chasers = List.of(
+                new PetActor.Nearby(new UUID(1, 1), new Vec3(-3, 0, -3), 1f),
+                new PetActor.Nearby(new UUID(2, 2), new Vec3(-3, 0, 3), 1f));
+
+        Vec3 away = FollowBehaviour.escape(cornered, chasers);
+
+        assertTrue(away.x > 0.9, "the way out is past both of them, not round one; was " + away);
+        assertEquals(0, away.z, 1.0E-6, "and straight between them, since they push equally");
+    }
+
+    @Test
+    void aPetWithOneOnEachSideBreaksSideways() {
+        List<PetActor.Nearby> chasers = List.of(
+                new PetActor.Nearby(new UUID(1, 1), new Vec3(-4, 0, 0), 1f),
+                new PetActor.Nearby(new UUID(2, 2), new Vec3(4, 0, 0), 1f));
+
+        Vec3 away = FollowBehaviour.escape(Vec3.ZERO, chasers);
+
+        assertEquals(1, away.length(), 1.0E-6, "it goes somewhere rather than standing there");
+        assertEquals(0, away.x, 1.0E-6, "and sideways, since neither way along the line is out");
     }
 
     /**

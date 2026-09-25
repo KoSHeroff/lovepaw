@@ -3,7 +3,18 @@
 Notable changes, newest first. Versions are `<mod>+mc<minecraft>`; the Minecraft
 half is not part of the mod's own numbering.
 
-## 0.6.0 — 2026-09-24
+## 0.6.0 — 2026-09-25
+
+### Added
+
+- **Chase is a game for however many pets are there.** It used to be strictly a pair: two
+  pets agreed between themselves and nobody else could join. Now three come out two against
+  one, the sides turn over a few seconds later and it is one against two, with the one
+  going for whichever is closer and changing its mind as they move. A pet with two after it
+  runs the way that puts distance between it and both at once instead of away from one and
+  into the other. Nothing is arranged: each pet works out its own side from its owner and
+  the world clock, and works out everybody else's the same way, so every client sees the
+  same game without a packet passing between them.
 
 ### Changed
 

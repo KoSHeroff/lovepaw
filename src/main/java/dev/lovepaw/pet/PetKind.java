@@ -31,7 +31,7 @@ public enum PetKind {
             new Body(0.6f, 0.7f, 0.08f, 1.0f, 0.42f, true, false, 0f, 0f),
             new Following(7f, 2f, 5f, 12f, 1.2f),
             new Speeds(0.16f, 0.30f, 0.10f),
-            new Pastimes(4f, 0.35f, 0.4f, 10f, 0.5f)),
+            new Pastimes(4f, 0.35f, 0.4f, 10f, 0.7f)),
 
     /**
      * An allay holding something you handed it.
@@ -46,7 +46,7 @@ public enum PetKind {
             new Body(0.35f, 0.6f, 0.08f, 0f, 0f, false, true, 1.8f, 1.2f),
             new Following(10f, 4f, 6f, 16f, 1.2f),
             new Speeds(0.18f, 0.32f, 0.12f),
-            new Pastimes(5f, 0f, 0.4f, 12f, 0.5f));
+            new Pastimes(5f, 0f, 0.4f, 12f, 0.7f));
 
     /**
      * How big it is and what the world does to it.
@@ -91,7 +91,8 @@ public enum PetKind {
      * @param sitChance      odds of sitting down instead of strolling, 0 to 1
      * @param curiosity      odds of going to look at something nearby instead
      * @param interestRadius how far it notices things worth a look
-     * @param playfulness    odds of starting a game of chase with another pet
+     * @param playfulness    odds of being up for a game of chase in any given
+     *                       stretch of world time
      */
     public record Pastimes(float strollRadius, float sitChance, float curiosity,
                            float interestRadius, float playfulness) {
