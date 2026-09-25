@@ -2,6 +2,7 @@ package dev.lovepaw.pet;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import dev.lovepaw.LovePaw;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.ArrayList;
@@ -91,7 +92,7 @@ public final class PetDefinitionParser {
                 animationFile,
                 Map.copyOf(animations),
                 readRender(json.getAsJsonObject("render")),
-                readBehaviour(json.getAsJsonObject("behaviour")),
+                readKind(id, json.getAsJsonObject("behaviour")),
                 source,
                 contentHash);
     }
@@ -113,36 +114,32 @@ public final class PetDefinitionParser {
                 bool(json, "nameplate", base.nameplate()));
     }
 
-    private static PetBehaviourSettings readBehaviour(JsonObject json) {
-        PetBehaviourSettings base = PetBehaviourSettings.DEFAULT;
+    /**
+     * Which animal this pet behaves like. Everything else a pack used to say
+     * about behaviour is ignored: those numbers are the game's now.
+     *
+     * <p>A pet written before kinds existed said {@code "type": "follow"} and
+     * marked a flyer with {@code "hover": true}. Both still read the way they
+     * always did, so nobody's pet has to be edited to keep working.
+     */
+    private static PetKind readKind(ResourceLocation id, JsonObject json) {
         if (json == null) {
-            return base;
+            return PetKind.GROUND;
         }
-        return new PetBehaviourSettings(
-                string(json, "type", base.type()),
-                clamp(number(json, "anchor_radius", base.anchorRadius()), 1f, 48f),
-                Math.max(0, number(json, "stop_distance", base.stopDistance())),
-                clamp(number(json, "teleport_distance", base.teleportDistance()), 4, 64),
-                clamp(number(json, "walk_speed", base.walkSpeed()), 0.01f, 1f),
-                clamp(number(json, "run_speed", base.runSpeed()), 0.01f, 1f),
-                Math.max(0, number(json, "run_distance", base.runDistance())),
-                clamp(number(json, "gravity", base.gravity()), 0f, 1f),
-                clamp(number(json, "step_height", base.stepHeight()), 0f, 3f),
-                clamp(number(json, "jump_power", base.jumpPower()), 0f, 1f),
-                clamp(number(json, "width", base.width()), 0.05f, 4f),
-                clamp(number(json, "height", base.height()), 0.05f, 4f),
-                bool(json, "can_swim", base.canSwim()),
-                bool(json, "hover", base.hover()),
-                clamp(number(json, "hover_height", base.hoverHeight()), 0f, 8f),
-                clamp(number(json, "hover_drift", base.hoverDrift()), 0f, 4f),
-                bool(json, "wander", base.wander()),
-                clamp(number(json, "wander_radius", base.wanderRadius()), 1.5f, 16f),
-                clamp(number(json, "wander_speed", base.wanderSpeed()), 0.01f, 1f),
-                clamp(number(json, "sit_chance", base.sitChance()), 0f, 1f),
-                clamp(number(json, "curiosity", base.curiosity()), 0f, 1f),
-                clamp(number(json, "interest_radius", base.interestRadius()), 0f, 24f),
-                clamp(number(json, "playfulness", base.playfulness()), 0f, 1f),
-                clamp(number(json, "prediction_seconds", base.predictionSeconds()), 0f, 3f));
+
+        String type = string(json, "type", null);
+        PetKind named = PetKind.byName(type);
+        if (named != null) {
+            return named;
+        }
+        if (bool(json, "hover", false)) {
+            return PetKind.FLYING;
+        }
+        if (!PetKind.isLegacyType(type)) {
+            LovePaw.LOGGER.warn("Pet {} is a '{}', which is not a kind of pet; walking like a cat instead",
+                    id, type);
+        }
+        return PetKind.GROUND;
     }
 
     private static ResourceLocation resolve(ResourceLocation folder, String value, ResourceLocation id, String field) {

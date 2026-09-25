@@ -9,7 +9,7 @@ import dev.lovepaw.model.anim.AnimationPlayer;
 import dev.lovepaw.model.anim.BonePose;
 import dev.lovepaw.model.anim.molang.MolangContext;
 import dev.lovepaw.pet.PetAnimationState;
-import dev.lovepaw.pet.PetBehaviourSettings;
+import dev.lovepaw.pet.PetKind;
 import dev.lovepaw.pet.PetDefinition;
 import dev.lovepaw.pet.PetRenderSettings;
 import net.minecraft.core.BlockPos;
@@ -58,8 +58,9 @@ public final class PetInstance implements PetActor {
     private final MolangContext molang = new MolangContext();
 
     private final boolean local;
-    private PetBehaviourSettings effectiveBehaviour;
     private PetRenderSettings effectiveRender;
+    private float width;
+    private float height;
     private int settingsRevision = -1;
 
     private Vec3 position = Vec3.ZERO;
@@ -94,10 +95,10 @@ public final class PetInstance implements PetActor {
         this.definition = definition;
         this.assets = assets;
         this.local = local;
-        this.behaviour = PetBehaviours.create(definition.behaviour().type());
+        this.behaviour = PetBehaviours.create(definition.kind());
         this.animation = new AnimationPlayer(assets.animations());
-        this.effectiveBehaviour = definition.behaviour();
         this.effectiveRender = definition.render();
+        resize();
         refreshSettings();
     }
 
@@ -111,8 +112,18 @@ public final class PetInstance implements PetActor {
         }
         settingsRevision = revision;
         PetOverrides overrides = ClientConfig.overrides();
-        effectiveBehaviour = overrides.applyTo(definition.behaviour());
         effectiveRender = overrides.applyTo(definition.render());
+        resize();
+    }
+
+    /**
+     * A pet drawn twice the size needs a box twice the size, or it walks
+     * through the doorways it plainly does not fit through.
+     */
+    private void resize() {
+        PetKind kind = definition.kind();
+        width = kind.width(effectiveRender.scale());
+        height = kind.height(effectiveRender.scale());
     }
 
     /** How this pet is drawn, with the player's tweaks applied. */
@@ -140,7 +151,7 @@ public final class PetInstance implements PetActor {
     public void tick(Player petOwner) {
         this.owner = petOwner;
         refreshSettings();
-        PetBehaviourSettings config = effectiveBehaviour;
+        PetKind config = definition.kind();
         Level level = petOwner.level();
 
         previousPosition = position;
@@ -178,8 +189,8 @@ public final class PetInstance implements PetActor {
             verticalMotion = hover.climb(
                     PetPhysics.Space.of(level),
                     position,
-                    config.width(),
-                    config.height(),
+                    width,
+                    height,
                     config.hoverHeight(),
                     config.hoverDrift(),
                     ownerPosition().y,
@@ -189,7 +200,7 @@ public final class PetInstance implements PetActor {
             verticalMotion = Math.max(TERMINAL_VELOCITY, verticalMotion - config.gravity());
         }
 
-        AABB box = PetPhysics.boxAt(position, config.width(), config.height());
+        AABB box = PetPhysics.boxAt(position, width, height);
         Vec3 moved = PetPhysics.move(
                 PetPhysics.Space.of(level),
                 box,
@@ -200,7 +211,7 @@ public final class PetInstance implements PetActor {
         boolean landed = verticalMotion < 0 && moved.y > verticalMotion + 1.0E-4;
         onGround = !config.hover()
                 && (landed || PetPhysics.onGround(PetPhysics.Space.of(level),
-                        PetPhysics.boxAt(position, config.width(), config.height())));
+                        PetPhysics.boxAt(position, width, height)));
         if (onGround && verticalMotion < 0) {
             verticalMotion = 0;
         }
@@ -232,7 +243,7 @@ public final class PetInstance implements PetActor {
         }
     }
 
-    private void maybeJump(PetBehaviourSettings config) {
+    private void maybeJump(PetKind config) {
         if (!wantsJump(config, onGround, inWater, stuckTicks)) {
             return;
         }
@@ -240,23 +251,23 @@ public final class PetInstance implements PetActor {
         onGround = false;
     }
 
-    static boolean wantsJump(PetBehaviourSettings config, boolean onGround, boolean inWater, int blockedTicks) {
+    static boolean wantsJump(PetKind config, boolean onGround, boolean inWater, int blockedTicks) {
         if (config.jumpPower() <= 0 || config.hover() || !onGround || inWater) {
             return false;
         }
         return blockedTicks >= JUMP_AFTER_TICKS;
     }
 
-    private boolean wedged(Level level, PetBehaviourSettings config) {
+    private boolean wedged(Level level, PetKind config) {
         if (config.hover()) {
             return false;
         }
         return PetPhysics.wedged(PetPhysics.Space.of(level),
-                PetPhysics.boxAt(position, config.width(), config.height()));
+                PetPhysics.boxAt(position, width, height));
     }
 
-    private boolean inWater(Level level, PetBehaviourSettings config) {
-        BlockPos pos = BlockPos.containing(position.x, position.y + config.height() * 0.5, position.z);
+    private boolean inWater(Level level, PetKind config) {
+        BlockPos pos = BlockPos.containing(position.x, position.y + height * 0.5, position.z);
         return level.getFluidState(pos).is(FluidTags.WATER);
     }
 
@@ -280,12 +291,12 @@ public final class PetInstance implements PetActor {
         yaw = yaw + Mth.wrapDegrees(target - yaw) * 0.25f;
     }
 
-    private void updateState(PetBehaviourSettings config) {
+    private void updateState(PetKind config) {
         state = stateFor(config, inWater, onGround, verticalMotion, lastTickSpeed, sitting);
         animation.play(resolveAnimation(state), TRANSITION_SECONDS);
     }
 
-    static PetAnimationState stateFor(PetBehaviourSettings config,
+    static PetAnimationState stateFor(PetKind config,
                                       boolean inWater,
                                       boolean onGround,
                                       double verticalMotion,
@@ -338,9 +349,9 @@ public final class PetInstance implements PetActor {
         return assets.hasAnimation(idle) ? idle : null;
     }
 
-    private void applyTeleport(PetBehaviourSettings config) {
+    private void applyTeleport(PetKind config) {
         Vec3 spot = PetPhysics.findTeleportSpot(PetPhysics.Space.of(owner.level()),
-                owner.position(), config.width(), config.height(), owner.getYRot());
+                owner.position(), width, height, owner.getYRot());
         position = spot != null ? spot : owner.position();
         previousPosition = position;
         verticalMotion = 0;
@@ -450,8 +461,8 @@ public final class PetInstance implements PetActor {
     }
 
     @Override
-    public PetBehaviourSettings settings() {
-        return effectiveBehaviour;
+    public PetKind kind() {
+        return definition.kind();
     }
 
     @Override
@@ -485,7 +496,7 @@ public final class PetInstance implements PetActor {
      * worth the search.
      */
     private Vec3 steer(Vec3 target) {
-        PetBehaviourSettings config = effectiveBehaviour;
+        PetKind config = definition.kind();
         if (config.hover()) {
             return target;
         }
@@ -493,7 +504,7 @@ public final class PetInstance implements PetActor {
                 PetPhysics.Space.of(owner.level()),
                 position,
                 target,
-                new PetPathfinder.Shape(config.width(), config.height(), config.stepHeight()),
+                new PetPathfinder.Shape(width, height, config.stepHeight()),
                 stuckTicks >= PATH_AFTER_TICKS);
     }
 
@@ -535,8 +546,8 @@ public final class PetInstance implements PetActor {
 
     @Override
     public Vec3 findStandingSpot(Vec3 near) {
-        PetBehaviourSettings config = effectiveBehaviour;
+        PetKind config = definition.kind();
         return PetPhysics.findStandingSpot(PetPhysics.Space.of(owner.level()),
-                near, config.width(), config.height());
+                near, width, height);
     }
 }

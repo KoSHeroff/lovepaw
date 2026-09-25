@@ -1,6 +1,6 @@
 package dev.lovepaw.behaviour;
 
-import dev.lovepaw.pet.PetBehaviourSettings;
+import dev.lovepaw.pet.PetKind;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
@@ -64,7 +64,7 @@ public interface PetActor {
     /** The world clock, which every client has the same reading of. */
     long worldTime();
 
-    PetBehaviourSettings settings();
+    PetKind kind();
 
     /** Length of one tick in seconds, for timers. */
     float deltaSeconds();

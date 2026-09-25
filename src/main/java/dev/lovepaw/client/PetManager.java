@@ -208,7 +208,7 @@ public final class PetManager {
                 continue;
             }
             found.add(new PetActor.Nearby(pet.ownerId(), pet.position(),
-                    pet.settings().playfulness()));
+                    pet.kind().playfulness()));
         }
         return found;
     }

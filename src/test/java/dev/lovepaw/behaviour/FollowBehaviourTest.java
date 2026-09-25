@@ -1,6 +1,6 @@
 package dev.lovepaw.behaviour;
 
-import dev.lovepaw.pet.PetBehaviourSettings;
+import dev.lovepaw.pet.PetKind;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
@@ -41,7 +41,7 @@ class FollowBehaviourTest {
         simulate(behaviour, actor, 400);
 
         double fromAnchor = actor.position.distanceTo(Vec3.ZERO);
-        assertTrue(fromAnchor < PetBehaviourSettings.DEFAULT.wanderRadius() + 2,
+        assertTrue(fromAnchor < PetKind.GROUND.strollRadius() + 2,
                 "should potter about its own patch, not follow the owner around; was " + fromAnchor);
         assertFalse(actor.teleported);
     }
@@ -123,10 +123,10 @@ class FollowBehaviourTest {
     }
 
     @Test
-    void staysPutWhenWanderingIsTurnedOff() {
+    void staysPutWithNowhereToStrollTo() {
         TestActor actor = new TestActor();
         actor.position = new Vec3(0.5, 0, 0);
-        actor.settings = withWander(false);
+        actor.nowhereToStand = true;
 
         simulate(new FollowBehaviour(), actor, 600);
 
@@ -137,7 +137,7 @@ class FollowBehaviourTest {
     void watchesTheOwnerInGlancesRatherThanTrackingThem() {
         TestActor actor = new TestActor();
         actor.position = new Vec3(1, 0, 0);
-        actor.settings = withWander(false);
+        actor.nowhereToStand = true;
         FollowBehaviour behaviour = new FollowBehaviour();
 
         simulate(behaviour, actor, 5);
@@ -161,7 +161,7 @@ class FollowBehaviourTest {
         TestActor actor = new TestActor();
         actor.position = new Vec3(1, 0, 0);
         actor.ownerPosition = new Vec3(0, 0, 0);
-        actor.settings = withWander(false);
+        actor.nowhereToStand = true;
         FollowBehaviour behaviour = new FollowBehaviour();
 
         boolean lookedSomewhereElse = false;
@@ -177,11 +177,11 @@ class FollowBehaviourTest {
     @Test
     void doesNotWaitOutASitItCannotDo() {
         TestActor canSit = new TestActor();
-        canSit.settings = withWander(false);
+        canSit.nowhereToStand = true;
         simulate(new FollowBehaviour(), canSit, 600);
 
         TestActor cannotSit = new TestActor();
-        cannotSit.settings = withWander(false);
+        cannotSit.nowhereToStand = true;
         cannotSit.canSit = false;
         simulate(new FollowBehaviour(), cannotSit, 600);
 
@@ -246,7 +246,7 @@ class FollowBehaviourTest {
         TestActor actor = new TestActor();
         actor.position = new Vec3(0.5, 0, 0);
         actor.interesting = new Vec3(7, 0, 0);
-        actor.settings = withWander(false);
+        actor.nowhereToStand = true;
 
         simulate(new FollowBehaviour(), actor, 600);
 
@@ -301,25 +301,41 @@ class FollowBehaviourTest {
         assertNotEquals(mine, theirs, "two different pets should not move in lockstep");
     }
 
-    /** Two pets standing next to each other, each seeing the other. */
-    private static TestActor[] pair(long seed) {
-        TestActor mine = new TestActor();
-        TestActor theirs = new TestActor();
-        mine.owner = new UUID(1, seed);
-        theirs.owner = new UUID(2, seed);
-        // Each stands by its own owner, a few blocks apart, so heading for the
-        // other pet cannot be confused with heading home.
-        mine.ownerPosition = new Vec3(0, 0, 0);
-        theirs.ownerPosition = new Vec3(5, 0, 0);
-        mine.position = new Vec3(0.5, 0, 0.5);
-        theirs.position = new Vec3(5.5, 0, 0.5);
-        mine.time = theirs.time = 1000;
-        mine.neighbours = List.of(new PetActor.Nearby(theirs.owner, theirs.position, 1f));
-        theirs.neighbours = List.of(new PetActor.Nearby(mine.owner, mine.position, 1f));
-        return new TestActor[]{mine, theirs};
+    /** Pets standing a short way apart, each of them seeing all the others. */
+    private static TestActor[] group(long seed, int count) {
+        TestActor[] pets = new TestActor[count];
+        for (int i = 0; i < count; i++) {
+            TestActor pet = new TestActor();
+            pet.owner = new UUID(i + 1, seed);
+            // Each stands by its own owner, a few blocks along from the last,
+            // so heading for another pet cannot be confused with heading home.
+            pet.ownerPosition = new Vec3(i * 4, 0, 0);
+            pet.position = new Vec3(i * 4 + 0.5, 0, 0.5);
+            pet.time = 1000;
+            pets[i] = pet;
+        }
+        look(pets);
+        return pets;
     }
 
-    /** Runs both pets a tick, keeping what each can see of the other up to date. */
+    private static TestActor[] pair(long seed) {
+        return group(seed, 2);
+    }
+
+    /** Brings what each pet can see of the others up to date. */
+    private static void look(TestActor[] pets) {
+        for (TestActor pet : pets) {
+            List<PetActor.Nearby> seen = new ArrayList<>();
+            for (TestActor other : pets) {
+                if (other != pet) {
+                    seen.add(new PetActor.Nearby(other.owner, other.position, other.kind.playfulness()));
+                }
+            }
+            pet.neighbours = seen;
+        }
+    }
+
+    /** Runs every pet a tick, keeping what each can see up to date. */
     private static void playTick(FollowBehaviour[] minds, TestActor[] pets) {
         for (TestActor pet : pets) {
             pet.time++;
@@ -327,16 +343,168 @@ class FollowBehaviourTest {
                 pet.position = pet.position.add(pet.motion);
             }
         }
-        pets[0].neighbours = List.of(new PetActor.Nearby(pets[1].owner, pets[1].position,
-                pets[1].settings.playfulness()));
-        pets[1].neighbours = List.of(new PetActor.Nearby(pets[0].owner, pets[0].position,
-                pets[0].settings.playfulness()));
-        minds[0].tick(pets[0]);
-        minds[1].tick(pets[1]);
+        look(pets);
+        for (int i = 0; i < pets.length; i++) {
+            minds[i].tick(pets[i]);
+        }
     }
 
+    /** How many of them are after this one right now. */
+    private static int chasersOf(TestActor[] pets, int prey) {
+        int chasing = 0;
+        for (int hunter = 0; hunter < pets.length; hunter++) {
+            if (hunter != prey && heading(pets[hunter], pets[prey])) {
+                chasing++;
+            }
+        }
+        return chasing;
+    }
+
+    private static FollowBehaviour[] mindsFor(TestActor[] pets) {
+        FollowBehaviour[] minds = new FollowBehaviour[pets.length];
+        for (int i = 0; i < minds.length; i++) {
+            minds[i] = new FollowBehaviour();
+        }
+        return minds;
+    }
+
+
+    @Test
+    void threePetsComeOutTwoAgainstOne() {
+        TestActor[] pets = group(11L, 3);
+        FollowBehaviour[] minds = mindsFor(pets);
+
+        boolean gangedUp = false;
+        for (int tick = 0; tick < 4000 && !gangedUp; tick++) {
+            playTick(minds, pets);
+            for (int prey = 0; prey < pets.length; prey++) {
+                gangedUp |= chasersOf(pets, prey) == 2;
+            }
+        }
+
+        assertTrue(gangedUp, "a game between three of them should put two on the same one");
+    }
+
+    @Test
+    void oneOfThemTakesOnBothOfTheOthers() {
+        TestActor[] pets = group(11L, 3);
+        FollowBehaviour[] minds = mindsFor(pets);
+
+        boolean[][] wentAfter = new boolean[pets.length][pets.length];
+        for (int tick = 0; tick < 4000; tick++) {
+            playTick(minds, pets);
+            for (int hunter = 0; hunter < pets.length; hunter++) {
+                for (int prey = 0; prey < pets.length; prey++) {
+                    wentAfter[hunter][prey] |= hunter != prey && heading(pets[hunter], pets[prey]);
+                }
+            }
+        }
+
+        boolean tookOnTwo = false;
+        for (boolean[] hunted : wentAfter) {
+            int howMany = 0;
+            for (boolean one : hunted) {
+                howMany += one ? 1 : 0;
+            }
+            tookOnTwo |= howMany == 2;
+        }
+
+        assertTrue(tookOnTwo, "one pet against two should end up going for each of them in turn");
+    }
+
+    @Test
+    void theOneBeingChasedIsNeverAlsoChasing() {
+        TestActor[] pets = group(11L, 3);
+        FollowBehaviour[] minds = mindsFor(pets);
+
+        for (int tick = 0; tick < 4000; tick++) {
+            playTick(minds, pets);
+            for (int prey = 0; prey < pets.length; prey++) {
+                if (chasersOf(pets, prey) == 0) {
+                    continue;
+                }
+                for (int other = 0; other < pets.length; other++) {
+                    if (other != prey && heading(pets[other], pets[prey])) {
+                        assertFalse(heading(pets[prey], pets[other]),
+                                "two pets cannot be after each other at tick " + tick);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Two against one becomes one against two without anything being arranged:
+     * every pet turns over at the same moment, so the sides simply swap.
+     */
+    @Test
+    void theSidesTurnOverTogetherPartWayThrough() {
+        long era = 1500;
+        for (int i = 1; i <= 4; i++) {
+            UUID owner = new UUID(i, 99L);
+
+            boolean atTheStart = FollowBehaviour.chasesAt(owner, era, era);
+            assertNotEquals(atTheStart, FollowBehaviour.chasesAt(owner, era, era + 60),
+                    "whoever was chasing should be the one running by now");
+            assertEquals(atTheStart, FollowBehaviour.chasesAt(owner, era, era + 120),
+                    "and be back to chasing after that");
+            assertEquals(atTheStart, FollowBehaviour.chasesAt(owner, era, era + 59),
+                    "the side a pet is on holds for the whole stretch, not tick by tick");
+        }
+    }
+
+    /**
+     * Whether a pet plays at all is its own business, worked out from its owner
+     * and the clock — so every other pet, on every other client, works out the
+     * same answer about it without being told.
+     */
+    @Test
+    void whetherAPetIsUpForAGameIsTheSameAnswerEverywhere() {
+        UUID owner = new UUID(3, 99L);
+        long era = 1500;
+
+        assertEquals(FollowBehaviour.inTheMood(owner, 0.7f, era),
+                FollowBehaviour.inTheMood(owner, 0.7f, era));
+        assertFalse(FollowBehaviour.inTheMood(owner, 0f, era),
+                "a pet that never plays is never in the mood");
+        assertTrue(FollowBehaviour.inTheMood(owner, 1f, era),
+                "and one that always does always is");
+    }
+
+    @Test
+    void theOneBeingChasedRunsBetweenThemRatherThanIntoOne() {
+        Vec3 cornered = Vec3.ZERO;
+        List<PetActor.Nearby> chasers = List.of(
+                new PetActor.Nearby(new UUID(1, 1), new Vec3(-3, 0, -3), 1f),
+                new PetActor.Nearby(new UUID(2, 2), new Vec3(-3, 0, 3), 1f));
+
+        Vec3 away = FollowBehaviour.escape(cornered, chasers);
+
+        assertTrue(away.x > 0.9, "the way out is past both of them, not round one; was " + away);
+        assertEquals(0, away.z, 1.0E-6, "and straight between them, since they push equally");
+    }
+
+    @Test
+    void aPetWithOneOnEachSideBreaksSideways() {
+        List<PetActor.Nearby> chasers = List.of(
+                new PetActor.Nearby(new UUID(1, 1), new Vec3(-4, 0, 0), 1f),
+                new PetActor.Nearby(new UUID(2, 2), new Vec3(4, 0, 0), 1f));
+
+        Vec3 away = FollowBehaviour.escape(Vec3.ZERO, chasers);
+
+        assertEquals(1, away.length(), 1.0E-6, "it goes somewhere rather than standing there");
+        assertEquals(0, away.x, 1.0E-6, "and sideways, since neither way along the line is out");
+    }
+
+    /**
+     * Whether a pet is making for another one. The target has to be somewhere
+     * the pet is not already standing: a resting pet whose own spot the other
+     * one happens to fly over is not chasing anybody.
+     */
     private static boolean heading(TestActor pet, TestActor at) {
-        return pet.lastWalkTarget != null && pet.lastWalkTarget.distanceTo(at.position) < 1.0;
+        return pet.lastWalkTarget != null
+                && pet.lastWalkTarget.distanceTo(at.position) < 1.0
+                && pet.lastWalkTarget.distanceTo(pet.position) > 1.5;
     }
 
     @Test
@@ -365,45 +533,38 @@ class FollowBehaviourTest {
         }
     }
 
+    /**
+     * A cat and a flying pet play together, and still agree about it.
+     *
+     * <p>Each pet asks its own kind how playful it is, so two kinds are two
+     * numbers. Taking the lower of the two is what keeps the answer the same on
+     * both clients — without it, one pet would give chase while the other stood
+     * there wondering what was going on.
+     */
     @Test
-    void aPetThatDoesNotPlayIsLeftAlone() {
+    void twoPetsOfDifferentKindsStillAgreeOnWhoIsChasing() {
         TestActor[] pets = pair(7L);
-        pets[0].settings = withPlayfulness(0);
+        pets[1].kind = PetKind.FLYING;
         FollowBehaviour[] minds = {new FollowBehaviour(), new FollowBehaviour()};
 
+        boolean played = false;
         for (int tick = 0; tick < 2000; tick++) {
             playTick(minds, pets);
-            assertFalse(heading(pets[1], pets[0]),
-                    "nobody should be chased into a game they do not play");
+            boolean mine = heading(pets[0], pets[1]);
+            boolean theirs = heading(pets[1], pets[0]);
+            assertFalse(mine && theirs, "they cannot both be the chaser at tick " + tick);
+            played |= mine || theirs;
         }
-    }
 
-    private static PetBehaviourSettings withPlayfulness(float playfulness) {
-        PetBehaviourSettings b = PetBehaviourSettings.DEFAULT;
-        return new PetBehaviourSettings(
-                b.type(), b.anchorRadius(), b.stopDistance(), b.teleportDistance(),
-                b.walkSpeed(), b.runSpeed(), b.runDistance(), b.gravity(), b.stepHeight(),
-                b.jumpPower(), b.width(), b.height(), b.canSwim(), b.hover(), b.hoverHeight(),
-                b.hoverDrift(), b.wander(), b.wanderRadius(), b.wanderSpeed(), b.sitChance(),
-                b.curiosity(), b.interestRadius(), playfulness, b.predictionSeconds());
-    }
-
-    private static PetBehaviourSettings withWander(boolean wander) {
-        PetBehaviourSettings base = PetBehaviourSettings.DEFAULT;
-        return new PetBehaviourSettings(
-                base.type(), base.anchorRadius(), base.stopDistance(), base.teleportDistance(),
-                base.walkSpeed(), base.runSpeed(), base.runDistance(), base.gravity(), base.stepHeight(),
-                base.jumpPower(),
-                base.width(), base.height(), base.canSwim(), base.hover(), base.hoverHeight(),
-                base.hoverDrift(),
-                wander, base.wanderRadius(), base.wanderSpeed(), base.sitChance(),
-                base.curiosity(), base.interestRadius(), base.playfulness(), base.predictionSeconds());
+        assertTrue(played, "a cat and a flyer side by side should get into a game at all");
     }
 
     private static class TestActor implements PetActor {
         private final RandomSource random = RandomSource.create(1234L);
 
-        PetBehaviourSettings settings = PetBehaviourSettings.DEFAULT;
+        PetKind kind = PetKind.GROUND;
+        /** True when there is nowhere it could stroll or go and look, so it stays put. */
+        boolean nowhereToStand;
         Vec3 position = Vec3.ZERO;
         Vec3 ownerPosition = Vec3.ZERO;
         Vec3 ownerVelocity = Vec3.ZERO;
@@ -473,8 +634,8 @@ class FollowBehaviourTest {
         }
 
         @Override
-        public PetBehaviourSettings settings() {
-            return settings;
+        public PetKind kind() {
+            return kind;
         }
 
         @Override
@@ -563,7 +724,7 @@ class FollowBehaviourTest {
 
         @Override
         public Vec3 findStandingSpot(Vec3 near) {
-            return new Vec3(near.x, 0, near.z);
+            return nowhereToStand ? null : new Vec3(near.x, 0, near.z);
         }
     }
 }

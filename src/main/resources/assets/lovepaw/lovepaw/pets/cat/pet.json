@@ -22,22 +22,6 @@
   },
 
   "behaviour": {
-    "type": "follow",
-    "anchor_radius": 8.0,
-    "prediction_seconds": 1.2,
-    "stop_distance": 1.4,
-    "run_distance": 5.0,
-    "teleport_distance": 20.0,
-    "walk_speed": 0.16,
-    "run_speed": 0.3,
-    "width": 0.5,
-    "height": 0.7,
-    "step_height": 1.0,
-    "can_swim": true,
-
-    "wander": true,
-    "wander_radius": 4.5,
-    "wander_speed": 0.1,
-    "sit_chance": 0.35
+    "type": "ground"
   }
 }

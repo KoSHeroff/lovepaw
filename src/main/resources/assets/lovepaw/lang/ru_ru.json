@@ -8,15 +8,9 @@
   "lovepaw.screen.settings": "Настройки",
 
   "lovepaw.settings.title": "Настройки питомца",
-  "lovepaw.settings.hint": "Действует на твоего питомца поверх настроек его пака",
-  "lovepaw.settings.anchor_radius": "Зона, из которой можно выйти: %s",
-  "lovepaw.settings.prediction": "Упреждение движения: %s с",
-  "lovepaw.settings.wander_radius": "Радиус прогулок: %s",
-  "lovepaw.settings.sit_chance": "Садится: в %s случаев",
+  "lovepaw.settings.hint": "Действует на твоего питомца",
   "lovepaw.settings.scale": "Размер: %sx",
-  "lovepaw.settings.wander_on": "Прогулки: включены",
-  "lovepaw.settings.wander_off": "Прогулки: выключены",
-  "lovepaw.settings.reset": "Вернуть настройки питомца",
+  "lovepaw.settings.reset": "Вернуть свой размер",
 
   "key.categories.lovepaw": "LovePaw",
   "key.lovepaw.open_menu": "Открыть меню питомцев"

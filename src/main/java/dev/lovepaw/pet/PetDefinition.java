@@ -20,7 +20,7 @@ import java.util.Map;
  * @param animationFile .animation.json location, may be null
  * @param animations    state (idle, walk, ...) to animation name
  * @param render        drawing options
- * @param behaviour     movement options
+ * @param kind          which animal it behaves like, and so how it moves
  * @param source        where this definition was found
  * @param contentHash   names the files this pet is made of, so a pet can be
  *                      told apart from a different one wearing the same id
@@ -35,7 +35,7 @@ public record PetDefinition(
         ResourceLocation animationFile,
         Map<PetAnimationState, String> animations,
         PetRenderSettings render,
-        PetBehaviourSettings behaviour,
+        PetKind kind,
         PetSourceKind source,
         String contentHash
 ) {

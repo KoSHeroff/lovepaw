@@ -3,6 +3,42 @@
 Notable changes, newest first. Versions are `<mod>+mc<minecraft>`; the Minecraft
 half is not part of the mod's own numbering.
 
+## 0.6.0 — 2026-09-25
+
+### Added
+
+- **Chase is a game for however many pets are there.** It used to be strictly a pair: two
+  pets agreed between themselves and nobody else could join. Now three come out two against
+  one, the sides turn over a few seconds later and it is one against two, with the one
+  going for whichever is closer and changing its mind as they move. A pet with two after it
+  runs the way that puts distance between it and both at once instead of away from one and
+  into the other. Nothing is arranged: each pet works out its own side from its owner and
+  the world clock, and works out everybody else's the same way, so every client sees the
+  same game without a packet passing between them.
+
+### Changed
+
+- **A pet now behaves like an animal the game already has.** One that walks behaves like a
+  tamed cat or wolf: it minds its own business, follows when you get ahead of it, hops what
+  it cannot step over, and appears beside you past twelve blocks — which is exactly where
+  vanilla gives up on following and teleports. One that flies behaves like an allay
+  carrying something you handed it: a looser distance, four blocks counted as close enough,
+  its own height held over whatever is underneath.
+- **A pack says which of the two its pet is, and nothing else about how it moves.** The
+  page of numbers a `pet.json` used to carry — how far it wandered, how fast it walked, how
+  far ahead of you it aimed, how often it sat down — is gone. Every one of them asked a
+  pack author to invent an animal from scratch, and nobody can guess good values for that;
+  the pets that came out of it moved wrongly in ways nobody could name. `"type": "ground"`
+  or `"type": "flying"` is the whole of the behaviour block now.
+- Pets written before this keep working untouched. `"type": "follow"` still means a walking
+  pet and `"hover": true` still means a flying one; any other numbers left in the block are
+  ignored.
+- A pet's collision box comes from how big it is drawn, so a pet at `scale: 2.0` takes up
+  twice the room instead of walking through the doorways it plainly does not fit through.
+- **The settings screen is one slider: size.** The others set how far your pet wandered,
+  how far ahead of you it aimed and how often it sat — the same invented numbers, asked of
+  the player instead. Old values sitting in `config/lovepaw-client.json` are ignored.
+
 ## 0.5.0 — 2026-09-24
 
 ### Added

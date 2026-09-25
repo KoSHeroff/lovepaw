@@ -88,26 +88,7 @@ per-face UV *rotation*, polymesh (non-cube) geometry, and texture meshes.
   },
 
   "behaviour": {
-    "type": "follow",
-    "anchor_radius": 8.0,
-    "prediction_seconds": 1.2,
-    "stop_distance": 1.4,
-    "run_distance": 5.0,
-    "teleport_distance": 20.0,
-    "walk_speed": 0.16,
-    "run_speed": 0.3,
-    "gravity": 0.08,
-    "step_height": 1.0,
-    "jump_power": 0.42,
-    "width": 0.5,
-    "height": 0.7,
-    "can_swim": true,
-    "hover": false,
-    "hover_height": 0.0,
-    "wander": true,
-    "wander_radius": 4.5,
-    "wander_speed": 0.1,
-    "sit_chance": 0.35
+    "type": "ground"
   }
 }
 ```
@@ -148,72 +129,83 @@ rather than starting over.
 
 ### behaviour
 
-Distances are blocks, speeds are blocks per tick (multiply by 20 for blocks per second).
+One field, and it is a choice of animal.
 
 | Field | Default | Meaning |
 |---|---|---|
-| `type` | `follow` | Only `follow` exists so far. The field is read now so packs stay valid when more arrive. |
-| `anchor_radius` | `8.0` | How far you can stray from the pet's patch of ground before it moves the patch. Clamped to 1–48. |
-| `prediction_seconds` | `1.2` | How far ahead of you it aims when you are on the move. `0` aims straight at you. |
-| `stop_distance` | `1.4` | How close to a target counts as arrived. |
-| `run_distance` | `5.0` | Beyond this to its target it uses `run_speed`. |
-| `teleport_distance` | `20.0` | Beyond this *from you* it gives up and appears next to you. Keep it comfortably above `anchor_radius` plus `wander_radius`, or a wandering pet will teleport for no reason. Clamped to 4–64. |
-| `walk_speed` | `0.16` | Roughly a walking player is `0.21`. |
-| `run_speed` | `0.30` | A sprinting player is roughly `0.28`. |
-| `gravity` | `0.08` | Fall acceleration per tick. |
-| `step_height` | `1.0` | How high a ledge it walks up instead of into. |
-| `jump_power` | `0.42` | Upward speed of a hop, used when it walks into something taller than `step_height`. Vanilla's `0.42` clears one block; `0` for a pet that never jumps. |
-| `width`, `height` | `0.5`, `0.7` | Collision box. Keep it close to the model or it will snag on doorways. |
-| `can_swim` | `true` | Float in water instead of sinking. |
-| `hover` | `false` | Ignore the ground entirely and fly — for bees, ghosts, orbs, fairies. |
-| `hover_height` | `0.0` | How high above **the ground under it** a flying pet likes to be. Clamped to 0–8. |
-| `hover_drift` | `1.0` | How far above and below that it wanders of its own accord. `0` holds one height exactly. Clamped to 0–4. |
-| `wander` | `true` | Potter about on its own once it has caught up. |
-| `wander_radius` | `4.5` | How far from the owner it will wander. Clamped to 1.5–16. |
-| `wander_speed` | `0.10` | Speed while wandering; slower than `walk_speed` reads as ambling. |
-| `sit_chance` | `0.35` | Odds of sitting down instead of wandering, once it has nothing to do. |
-| `curiosity` | `0.4` | Odds of going to look at something nearby instead of wandering to a spot of its own. `0` for a pet that never investigates anything. |
-| `interest_radius` | `10.0` | How far around its patch it notices things worth a look, other pets included. Clamped to 0–24. |
-| `playfulness` | `0.5` | Odds of starting a game of chase with another player's pet that comes near. `0` for a pet that keeps itself to itself. |
+| `type` | `ground` | `ground` for anything that walks, `flying` for anything that does not. |
 
-### What the pet does with all this
+That is deliberately the whole of it. A pet used to carry a page of numbers — how far it
+wandered, how fast it walked, how far ahead of you it aimed, how often it sat down — and
+every one of them was a way of asking a pack author to invent an animal from scratch.
+Nobody can guess good values for that, and the pets that came out of it moved wrongly in
+ways nobody could name.
 
-A pet lives in a patch of ground rather than on a leash. The patch is anchored wherever
-you last settled, and `wander_radius` is its size.
+So the numbers are the game's own now:
 
-- **while you stay within `anchor_radius` of that anchor** the pet ignores you and gets on
-  with its own life: **resting** (standing, glancing your way now and then and off
-  elsewhere the rest of the time — it holds each look for a few seconds rather than
-  tracking you), **wandering** to a spot in the patch it picked itself, **going to look at
-  something** it noticed, or sitting down for a while with odds of `sit_chance`
-- **when you leave that radius** it moves house instead of giving chase: it works out
-  where you are heading from how you are moving, anchors the patch `prediction_seconds`
-  ahead of you, and runs to a spot in it — so it arrives alongside you rather than
-  trailing behind. While you keep moving the prediction keeps updating; the moment you
-  stop, the anchor settles where you stopped and the pet goes back to its own business
-- **walking into something** taller than `step_height` — a full block, a fence post — it
-  hops over it, if its `jump_power` is not zero
+- a **`ground`** pet behaves like a tamed cat or wolf. It follows when you get ahead of it,
+  hops what it cannot step over, swims rather than sinks, sits down, and appears beside you
+  past twelve blocks — which is exactly where vanilla gives up on following and teleports
+- a **`flying`** pet behaves like an allay carrying something you handed it. It keeps a
+  looser distance, counts four blocks as close enough, holds its own height over whatever
+  is under it, and goes over what a cat goes around
+
+A pet written before this said `"type": "follow"`, and marked a flyer with `"hover": true`.
+Both still read the way they always did, so nothing has to be edited. Any other numbers
+left in the block are ignored.
+
+Size comes from `render.scale`: the collision box is the animal's, multiplied by however
+big you drew it. A pet at `scale: 2.0` takes up twice the room, so it snags on the doorways
+it plainly does not fit through instead of walking through them.
+
+### What the pet does
+
+A pet lives in a patch of ground rather than on a leash. The patch is anchored wherever you
+last settled.
+
+- **while you stay near that anchor** the pet ignores you and gets on with its own life:
+  **resting** (standing, glancing your way now and then and off elsewhere the rest of the
+  time — it holds each look for a few seconds rather than tracking you), **strolling** to a
+  spot in the patch it picked itself, **going to look at something** it noticed, or sitting
+  down for a while
+- **when you leave that radius** it moves house instead of giving chase: it works out where
+  you are heading from how you are moving, anchors the patch ahead of you, and runs to a
+  spot in it — so it arrives alongside you rather than trailing behind. While you keep
+  moving the prediction keeps updating; the moment you stop, the anchor settles where you
+  stopped and the pet goes back to its own business
+- **walking into something** taller than it can step onto — a full block, a fence post — it
+  hops over, unless it flies
 - **meeting something it cannot get over** — a wall, the corner of a house — it works out a
   route round, block by block, and follows that until the place it was heading for moves.
   It only bothers once walking straight has plainly failed, so the search costs nothing in
   the open. A flying pet climbs over it instead
+- **far enough away**, or properly wedged on geometry, it gives up and appears next to you.
+  The same rescue covers a pet that ends up inside a block, from a teleport into a tight
+  spot or from a block placed on top of it
 
 A flying pet picks its own height rather than hanging at a fixed distance from you: it
-holds `hover_height` above whatever happens to be under it, drifts up and down within
-`hover_drift` of that on its own, rises when it runs into something, and ducks under a low
-ceiling. It only pays attention to where you are vertically when you get well above it —
-climb a tower and it will come up after you rather than wait by the ground.
-- **beyond `teleport_distance`**, or if it gets properly wedged on geometry, it gives up
-  and appears next to you. The same rescue covers a pet that ends up inside a block, from
-  a teleport into a tight spot or from a block placed on top of it
+holds its height above whatever happens to be under it, drifts up and down on its own,
+rises when it runs into something, and ducks under a low ceiling. It only pays attention to
+where you are vertically when you get well above it — climb a tower and it will come up
+after you rather than wait by the ground.
 
-When another player's pet comes within `interest_radius`, the two of them may start a game
-of chase: one runs, the other goes after it, and they swap over every few seconds until the
-game runs out. Neither pet tells the other anything — both work out from the pair of owners
-and the world clock whether there is a game on and who is chasing, so both players watch
-the same chase. The shyer pet sets the odds, so `playfulness: 0` keeps a pet out of games
-altogether rather than leaving it to be chased. A pet being chased stays inside its own
-patch: it runs round the far side of it rather than back into whoever is after it.
+When other players' pets come near, they may get into a game of chase — and it is a game
+for however many of them are there, not a pair. Three pets come out two against one; a few
+seconds later every side turns over and it is one against two, with the one going for
+whichever of them is closer and changing its mind as they move. A pet with two after it
+runs the way that puts distance between it and both at once, rather than away from one and
+into the other.
+
+Nothing is arranged between them. Each pet works out from its own owner and the world clock
+whether it is in the mood and which side it is on, and it can work the same out for every
+pet it can see, because those answers need nothing from that pet but its owner and how
+playful its kind is. So all of them reach the same picture of who is after whom, on every
+client at once, without a packet passing between them. How playful a kind is decides how
+often its pets are up for a game at all — `0` keeps a pet out of them entirely, and
+everybody else can tell.
+
+A pet being chased stays inside its own patch: it runs round the far side rather than back
+into whoever is after it, because the game is not worth losing its owner over.
 
 Things worth a look are the ones a player would notice: beds, signs, banners, paintings and
 item frames, candles and campfires, jukeboxes and note blocks, chests and barrels, anvils,
@@ -222,11 +214,6 @@ are everywhere and say nothing, so they are not on the list. The pet ambles over
 front of the thing for a few seconds — sometimes sitting down to look at it properly — and
 then gets on with something else. It remembers the last handful of things it has studied,
 so it does not shuttle between the same two all afternoon.
-
-Set `curiosity: 0` for a pet that ignores the world, `wander: false` for a pet that should
-stand still in its patch, and
-`prediction_seconds: 0` for one that heads straight at where you are rather than where
-you are going. A small `anchor_radius` (say 3) gives the glued-to-your-heels feel.
 
 Two things are worth knowing about how this is run. Every pet your client knows about is
 simulated, on screen or not — a pet exists on your client only while its owner is one of
@@ -238,10 +225,9 @@ from the pet's owner and the world time, so two players watching the same pet wa
 the same thing — one of them does not see it sitting on a chest while the other sees it
 sniffing a flower.
 
-Note that a player can override `anchor_radius`, `prediction_seconds`, `wander_radius`,
-`sit_chance`, `wander` and `scale` for their own pet from the settings screen. Your values
-are the default and stay in force until they change something, but do not rely on them
-being exact.
+Note that a player can change `scale` for their own pet from the settings screen. Your
+value is the default and stays in force until they touch it, but do not rely on the pet
+being drawn at exactly the size you chose.
 
 ## Animations
 
